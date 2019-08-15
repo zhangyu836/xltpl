@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import six
-from utils import block_tag_test
+from xltpl.utils import block_tag_test
 from openpyxl.cell.text import RichText, Text
 
 class RichTextHandler():
