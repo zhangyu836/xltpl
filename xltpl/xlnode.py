@@ -2,7 +2,7 @@
 
 import re
 import six
-from .utils import tag_test
+from xltpl.utils import tag_test
 
 class Node(object):
 
