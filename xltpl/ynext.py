@@ -32,7 +32,6 @@ class YnExtension(Extension):
 
     def __init__(self, environment):
         super(self.__class__, self).__init__(environment)
-        environment.extend(xlsx = None)
 
     def parse(self, parser):
         lineno = next(parser.stream).lineno
@@ -46,7 +45,7 @@ class YnExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _yn(self, arg0, arg1, caller):
-        section = self.environment.sheet_tpl.current_section
+        section = self.environment.sheet_pos.current_node
         #rv = caller()
         if arg1 is not None:
             arg0 = not arg0

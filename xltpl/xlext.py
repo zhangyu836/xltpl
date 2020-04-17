@@ -8,7 +8,7 @@ class CellExtension(Extension):
 
     def __init__(self, environment):
         super(self.__class__, self).__init__(environment)
-        environment.extend(sheet_tpl = None)
+        environment.extend(sheet_pos = None)
 
     def parse(self, parser):
         lineno = next(parser.stream).lineno
@@ -17,10 +17,10 @@ class CellExtension(Extension):
         return nodes.CallBlock(self.call_method('_cell', args),
                                [], [], body).set_lineno(lineno)
 
-    def _cell(self, number, caller):
-        cell = self.environment.sheet_tpl.get_cell(number)
+    def _cell(self, key, caller):
+        cell = self.environment.sheet_pos.get_node(key)
         rv = caller()
-        rv = cell.process_rv(rv)
+        rv = cell.process_rv(rv, self.environment.sheet_pos)
         return rv
 
 class SectionExtension(Extension):
@@ -36,10 +36,10 @@ class SectionExtension(Extension):
         return nodes.CallBlock(self.call_method('_sec', args),
                                [], [], body).set_lineno(lineno)
 
-    def _sec(self, number, caller):
-        section = self.environment.sheet_tpl.get_section(number)
+    def _sec(self, key, caller):
+        section = self.environment.sheet_pos.get_node(key)
         rv = caller()
-        rv = section.process_rv(rv)
+        rv = section.process_rv(rv, self.environment.sheet_pos)
         return rv
 
 class RowExtension(Extension):
@@ -56,8 +56,27 @@ class RowExtension(Extension):
         return nodes.CallBlock(self.call_method('_row', args),
                                [], [], body).set_lineno(lineno)
 
-    def _row(self, number, caller):
-        row = self.environment.sheet_tpl.get_row(number)
+    def _row(self, key, caller):
+        row = self.environment.sheet_pos.get_node(key)
         rv = caller()
-        rv = row.process_rv(rv)
+        rv = row.process_rv(rv, self.environment.sheet_pos)
+        return rv
+
+class XvExtension(Extension):
+    tags = set(['xv'])
+
+    def __init__(self, environment):
+        super(self.__class__, self).__init__(environment)
+
+    def parse(self, parser):
+        lineno = next(parser.stream).lineno
+        args = [parser.parse_expression()]
+        body = []
+        return nodes.CallBlock(self.call_method('_row', args),
+                               [], [], body).set_lineno(lineno)
+
+    def _row(self, xv, caller):
+        node = self.environment.sheet_pos.current_node
+        #rv = caller()
+        rv = node.process_xv(xv)
         return rv

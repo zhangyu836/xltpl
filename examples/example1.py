@@ -1,14 +1,20 @@
 # -*- coding: utf-8 -*-
 
-from xltpl.writer import XlsWriter
+import os
+from datetime import datetime
+from xltpl.writer import BookWriter
+
 
 def write_test():
-    fname = './example.xls'
-    writer = XlsWriter(fname)
+    pth = os.path.dirname(__file__)
+    fname = os.path.join(pth, 'example.xls')
+    writer = BookWriter(fname)
     writer.jinja_env.globals.update(dir=dir, getattr=getattr)
 
-    person_info = {'address': u'福建行中书省福宁州傲龙山庄', 'name': u'龙傲天', 'fm': 1, }
-    person_info2 = {'address': u'Somewhere over the rainbow', 'name': u'Hello Wizard', 'fm': 1, }
+    now = datetime.now()
+
+    person_info = {'address': u'福建行中书省福宁州傲龙山庄', 'name': u'龙傲天', 'fm': 178, 'date': now}
+    person_info2 = {'address': u'Somewhere over the rainbow', 'name': u'Hello Wizard', 'fm': 156, 'date': now}
     rows = [['1', '1', '1', '1', '1', '1', '1', '1', ],
              ['1', '1', '1', '1', '1', '1', '1', '1', ],
              ['1', '1', '1', '1', '1', '1', '1', '1', ],
@@ -25,12 +31,13 @@ def write_test():
     payload2 = {'tpl_idx': 2, 'ctx': person_info2}
     payloads = [payload0, payload1, payload2]
     writer.render_book2(payloads=payloads)
-    writer.save('./result0.xls')
+    fname = os.path.join(pth, 'result10.xls')
+    writer.save(fname)
     payloads = [payload2, payload1, payload0]
     writer.render_book2(payloads=payloads)
     writer.render_sheet(person_info2, 'form2', 1)
-    writer.save('./result1.xls')
-    writer.finish()
+    fname = os.path.join(pth, 'result11.xls')
+    writer.save(fname)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 import re
 import six
-from xltpl.utils import tag_test
+from .utils import tag_test
 
 class Node(object):
 
@@ -11,18 +11,6 @@ class Node(object):
         self._root = None
         self.parent = None
         self.no = None
-
-    def __len__(self):
-        return len(self._children)
-
-    def __getitem__(self, index):
-        return self._children[index]
-
-    def __setitem__(self, index, node):
-        self._children[index] = node
-
-    def __delitem__(self, index):
-        del self._children[index]
 
     @property
     def root(self):
@@ -45,34 +33,35 @@ class Node(object):
         return ''.join(x)
 
     def to_tag(self):
-        return self.tag_tpl % (self.no, self.children_to_tag())
+        self.root.node_map[self.tpl_key] = self
+        return self.tag_tpl % (self.tpl_key, self.children_to_tag())
+
+    def process_xv(self, xv):
+        self.xv = xv
+        return six.text_type(xv)
 
 class Row(Node):
-    tag_tpl = '{%% row %d %%}\n%s'#{%% endrow %%}
-    html_tpl = '<tr>\n'
+    tag_tpl = "{%% row '%s' %%}\n%s"#{%% endrow %%}
+    html_tpl = '</tr><tr>\n'
 
-    def __init__(self, rowx, first_row=0):
+    def __init__(self, rowx):
         Node.__init__(self)
         self.rowx = rowx
-        self.first_row = first_row
 
-    def process_rv(self, rv):
-        self.write()
+    @property
+    def tpl_key(self):
+        return str(self.rowx)
+
+    def process_rv(self, rv, sheet_pos):
+        wtrowx = sheet_pos.next_row()
+        sheet_pos.wtsheet.row(self.rowx, wtrowx)
         return self.to_html()
 
-    def write(self):
-        if self.rowx > self.first_row:
-            self.root.next_row()
-        wtrowx = self.root.rowx
-        self.root.writer.row(self.rowx, wtrowx)
-
     def to_html(self):
-        if self.rowx > self.first_row:
-            self.html_tpl = '</tr>' + self.html_tpl
         return self.html_tpl
 
 class Cell(Node):
-    tag_tpl = '{%% cell %d %%}%s{%% endcell %%}\n'
+    tag_tpl = "{%% cell '%s' %%}%s{%% endcell %%}\n"
     html_tpl = '<td>%s</td>\n'
 
     def __init__(self, rowx, colx, value, cty):
@@ -82,14 +71,17 @@ class Cell(Node):
         self.value = value
         self.cty = cty
 
-    def process_rv(self, rv):
-        self.write(self.value)
+    @property
+    def tpl_key(self):
+        return '%d,%d' % (self.rowx, self.colx)
+
+    def process_rv(self, rv, sheet_pos):
+        self.write(self.value, self.cty, sheet_pos)
         return self.to_html()
 
-    def write(self, value):
-        wtrowx, wtcolx = self.root.coords()
-        self.root.writer.set_cell(self.rowx, self.colx, wtrowx, wtcolx, value, self.cty)
-        self.root.next_cell()
+    def write(self, value, cty, sheet_pos):
+        wtrowx, wtcolx = sheet_pos.next_cell()
+        sheet_pos.wtsheet.cell(self.rowx, self.colx, wtrowx, wtcolx, value, cty)
 
     def to_html(self):
         if self.value is None:
@@ -103,8 +95,8 @@ class EmptyCell(Cell):
     def __init__(self, rowx, colx):
         Cell.__init__(self, rowx, colx, None, None)
 
-    def process_rv(self, rv):
-        self.root.next_cell()
+    def process_rv(self, rv, sheet_pos):
+        sheet_pos.next_cell()
         return self.to_html()
 
 class RichCell(Cell):
@@ -113,8 +105,8 @@ class RichCell(Cell):
         Cell.__init__(self, rowx, colx, value, cty)
         self.rich_text = rich_text
 
-    def process_rv(self, rv):
-        self.write(self.rich_text)
+    def process_rv(self, rv, sheet_pos):
+        self.write(self.rich_text, self.cty, sheet_pos)
         return self.to_html()
 
     def to_html(self):
@@ -155,7 +147,7 @@ class VMap():
         for index, part in enumerate(parts):
             if index % 2 == 0:
                 if part:
-                    v = self.root.handler.rich_segment(part, self.font)
+                    v = self.root.rich_handler.rich_segment(part, self.font)
                     rv.append(v)
             else:
                 value = self.kvs[part]
@@ -176,7 +168,7 @@ class VMap():
 
     def unpack(self, rich_text):
         section = []
-        for text,font,segment in self.root.handler.iter(rich_text, self.font):
+        for text,font,segment in self.root.rich_handler.iter(rich_text, self.font):
             if tag_test(text):
                 if section:
                     self.add_section(section)
@@ -198,7 +190,7 @@ class Section():
 
 
 class TagSection(VMap, Node):
-    tag_tpl = '{%% sec %d %%}%s{%% endsec %%}'
+    tag_tpl = "{%% sec '%s' %%}%s{%% endsec %%}"
 
     def __init__(self, text, font, level=0):
         Node.__init__(self)
@@ -206,13 +198,18 @@ class TagSection(VMap, Node):
         self.text = text
         self.level = level
 
-    def to_tag(self):
-        return self.tag_tpl % (self.no, self.text)
+    @property
+    def tpl_key(self):
+        return '%s,%d' % (self.parent.tpl_key, self.no)
 
-    def process_rv(self, rv):
+    def to_tag(self):
+        self.root.node_map[self.tpl_key] = self
+        return self.tag_tpl % (self.tpl_key, self.text)
+
+    def process_rv(self, rv, sheet_pos):
         rv = self.pack(rv)
         if isinstance(rv, six.text_type) and self.level > 0:
-            rv = self.root.handler.rich_segment(rv, self.font)
+            rv = self.root.rich_handler.rich_segment(rv, self.font)
         if not isinstance(rv, six.text_type):
             rv = self.parent.addv(rv)
         return rv
@@ -228,11 +225,11 @@ class TagCell(Cell):
         self.rv = rv
         return ''
 
-    def process_rv(self, rv):
+    def process_rv(self, rv, sheet_pos):
         if self.rv:
-            rv = self.root.handler.rich_content(self.rv)
+            rv = self.root.rich_handler.rich_content(self.rv)
             self.rv = None
-        self.write(rv)
+        self.write(rv, self.cty, sheet_pos)
         return self.to_html(rv)
 
     def to_tag(self):
@@ -244,7 +241,27 @@ class TagCell(Cell):
         if not value:
             return self.html_tpl % six.text_type(self.value)
         else:
-            return self.html_tpl % self.root.handler.text_content(value)
+            return self.html_tpl % self.root.rich_handler.text_content(value)
+
+class XvCell(Cell):
+
+    def __init__(self, rowx, colx, value, cty):
+        Cell.__init__(self, rowx, colx, value, cty)
+        self.xv = None
+
+    def process_rv(self, rv, sheet_pos):
+        if self.xv:
+            self.write(self.xv, None, sheet_pos)
+        else:
+            self.write(rv, None, sheet_pos)
+        return self.to_html(rv)
+
+    def to_tag(self):
+        self.root.node_map[self.tpl_key] = self
+        return self.tag_tpl % (self.tpl_key, self.value)
+
+    def to_html(self, value=None):
+        return self.html_tpl % value
 
 class RichText(VMap):
 
@@ -259,10 +276,10 @@ class RichTagCell(Cell, RichText):
         Cell.__init__(self, rowx, colx, value, cty)
         RichText.__init__(self, rich_text, font)
 
-    def process_rv(self, rv):
+    def process_rv(self, rv, sheet_pos):
         rv = self.pack(rv)
-        rv = self.root.handler.rich_content(rv)
-        self.write(rv)
+        rv = self.root.rich_handler.rich_content(rv)
+        self.write(rv, self.cty, sheet_pos)
         return self.to_html(rv)
 
     def to_tag(self):
@@ -272,55 +289,43 @@ class RichTagCell(Cell, RichText):
     def to_html(self, value=None):
         if not value:
             value = self.rich_text
-        return self.html_tpl % self.root.handler.text_content(value)
+        return self.html_tpl % self.root.rich_handler.text_content(value)
 
 
-class Sheet(Node):
+class SheetNodes(Node):
 
-    def __init__(self, writer, first_row=0, first_col=0):
+    def __init__(self):
         Node.__init__(self)
-        self.writer = writer
-        self.first_row = first_row
-        self.first_col = first_col
-        self.reset()
+        self.node_map = {}
         self._root = self
-
-    def get_row(self, no):
-        row = self[no]
-        if not isinstance(row, Row):
-            raise Exception('not a row: %d' % no)
-        self.current_row = row
-        return row
-
-    def get_cell(self, no):
-        #cell = self.current_row[no]
-        cell = self[no]
-        if not isinstance(cell, Cell):
-            raise Exception('not a cell: %d' % no)
-        self.current_cell = cell
-        return cell
-
-    def get_section(self, no):
-        section = self.current_cell[no]
-        if not isinstance(section, TagSection):
-            raise Exception('not a tag section: %d' % no)
-        self.current_section = section
-        return section
-
-    def next_cell(self):
-        self.colx += 1
-
-    def next_row(self):
-        self.rowx += 1
-        self.colx = self.first_col
-
-    def coords(self):
-        return self.rowx, self.colx
-
-    def reset(self):
-        self.rowx = self.first_row
-        self.colx = self.first_col
 
     def to_tag(self):
         return self.children_to_tag()
 
+
+
+class SheetPos():
+
+    def __init__(self, wtsheet, sheet_nodes, first_row, first_col):
+        self.wtsheet = wtsheet
+        self.sheet_nodes = sheet_nodes
+        self.first_row = first_row - 1
+        self.first_col = first_col - 1
+        self.rowx = self.first_row
+        self.colx = self.first_col
+
+    def next_cell(self):
+        self.colx += 1
+        return self.rowx, self.colx
+
+    def next_row(self):
+        self.rowx += 1
+        self.colx = self.first_col
+        return self.rowx
+
+    def coords(self):
+        return self.rowx, self.colx
+
+    def get_node(self, key):
+        self.current_node = self.sheet_nodes.node_map.get(key)
+        return self.current_node

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import six
-from xltpl.utils import block_tag_test
+from .utils import block_tag_test
 from openpyxl.cell.text import RichText, Text
 
 class RichTextHandler():
@@ -48,3 +48,6 @@ class RichTextHandlerX():
     @classmethod
     def rich_content(cls, value):
         return Text(r=value).content
+
+rich_handlerx = RichTextHandlerX()
+rich_handler = RichTextHandler()

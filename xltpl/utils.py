@@ -18,6 +18,12 @@ def tag_test(txt):
     rv = p.findall(txt)
     return  bool(rv)
 
+def xv_test(txt):
+    pattern = '^ *%s *xv.+%s *$' % (BLOCK_START_STRING, BLOCK_END_STRING)
+    p = re.compile(pattern)
+    xv = p.findall(txt)
+    return bool(xv)
+
 def block_tag_test(txt):
     pattern = '%s.+%s' % (BLOCK_START_STRING, BLOCK_END_STRING)
     p = re.compile(pattern)
