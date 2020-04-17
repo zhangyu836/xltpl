@@ -1,10 +1,10 @@
 import os
-import codecs
+from io import open
 from setuptools import setup
 
 CUR_DIR = os.path.abspath(os.path.dirname(__file__))
 README = os.path.join(CUR_DIR, "README.md")
-with codecs.open(README, 'r', encoding='utf-8') as fd:
+with open(README, 'r', encoding='utf-8') as fd:
     long_description = fd.read()
 
 setup(
