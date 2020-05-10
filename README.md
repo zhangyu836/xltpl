@@ -5,8 +5,8 @@ xltpl 是 [xlstpl](https://github.com/zhangyu836/python-xls-template/) 和 [xlsx
 
 ## 实现方法
 
-writer 使用 xlrd 来读取 xls 文件，使用 xlwt 来写入 xls 文件。  
-wirterx 使用 openpyxl 来读写 xlsx 文件。 
+xltpl.writer 使用 xlrd 来读取 xls 文件，使用 xlwt 来写入 xls 文件。  
+xltpl.wirterx 使用 openpyxl 来读写 xlsx 文件。  
 xltpl 读取 xls/x 文件时，会为每个工作表创建一棵树。  
 然后，它将树转换为带有自定义 tag 的 jinja2 模板。  
 渲染模板时，自定义 tag 所对应的 jinja2 扩展会调用相应的树节点来写入 xls/x 文件。  
@@ -97,7 +97,7 @@ writer.save('result.xls')
 ### rich text
 
 openpyxl 读取 rich text 会将它转换为字符串，之后丢弃所读取的 rich text。   
-[这里的 openpyxl](https://bitbucket.org/zhangyu836/openpyxl/) ([2.6](https://bitbucket.org/zhangyu836/openpyxl/src/2.6/))会保留 rich text 并支持 rich text 写入。
+[这里的 openpyxl](https://bitbucket.org/zhangyu836/openpyxl/) ([2.6](https://bitbucket.org/zhangyu836/openpyxl/src/2.6/)) 会保留 rich text 并支持 rich text 写入。
 
 
 ### xlrd
@@ -107,5 +107,6 @@ xlrd 不会读入打印设置。
 
 ### xlwt
   
-xlwt 总是将默认字体设置为 'Arial'。(Excel 基于默认字体来设置单元格宽度)。   
+xlwt 总是将默认字体设置为 'Arial'。  
+Excel 基于默认字体来设置单元格宽度。   
 如果需要一致的单元格宽度，可以使用[这里的 xlwt](https://github.com/zhangyu836/xlwt)。  

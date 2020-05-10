@@ -3,13 +3,13 @@ from io import open
 from setuptools import setup
 
 CUR_DIR = os.path.abspath(os.path.dirname(__file__))
-README = os.path.join(CUR_DIR, "README.md")
+README = os.path.join(CUR_DIR, "README_en.md")
 with open(README, 'r', encoding='utf-8') as fd:
     long_description = fd.read()
 
 setup(
     name = 'xltpl',
-    version = "0.2",
+    version = "0.2.1",
     author = 'Zhang Yu',
     author_email = 'zhangyu836@gmail.com',
     url = 'https://github.com/zhangyu836/python-xls-xlsx-template',
@@ -20,5 +20,5 @@ setup(
     long_description_content_type = "text/markdown",
     platforms = ["Any platform "],
     license = 'MIT',
-    keywords = ['xls', 'xlsx', 'spreadsheet', 'workbook', 'template']
+    keywords = ['Excel', 'xls', 'xlsx', 'spreadsheet', 'workbook', 'template']
 )
