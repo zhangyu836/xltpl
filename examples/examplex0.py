@@ -17,13 +17,14 @@ def write_test():
     person_info = {'address': u'福建行中书省福宁州傲龙山庄', 'name': u'龙傲天', 'fm': 178, 'date': now}
     person_info2 = {'address': u'Somewhere over the rainbow', 'name': u'Hello Wizard', 'fm': 156, 'date': now}
     rows = [['1', '1', '1', '1', '1', '1', '1', '1', ],
-             ['1', '1', '1', '1', '1', '1', '1', '1', ],
-             ['1', '1', '1', '1', '1', '1', '1', '1', ],
-             ['1', '1', '1', '1', '1', '1', '1', '1', ],
-             ['1', '1', '1', '1', '1', '1', '1', '1', ],
-             ['1', '1', '1', '1', '1', '1', '1', '1', ],
-             ['1', '1', '1', '1', '1', '1', '1', '1', ],
-             ['1', '1', '1', '1', '1', '1', '1', '1', ],
+            ['1', '1', '1', '1', '1', '1', '1', '1', ],
+            ['1', '1', '1', '1', '1', '1', '1', '1', ],
+            ['1', '1', '1', '1', '1', '1', '1', '1', ],
+             [1, 1, 1, 1, 1, 1, 1, 1, ],
+             [1, 1, 1, 1, 1, 1, 1, 1, ],
+             [1, 1, 1, 1, 1, 1, 1, 1, ],
+             [1, 1, 1, 1, 1, 1, 1, 1, ],
+             [1, 1, 1, 1, 1],
             ]
     person_info['rows'] = rows
     person_info['tpl_idx'] = 0
@@ -31,7 +32,10 @@ def write_test():
     person_info2['tpl_name'] = 'en'
     person_info3 = copy.copy(person_info2)
     person_info3['sheet_name'] = 'hello sheet'
-    payloads = [person_info, person_info2, person_info3]
+    person_info4 = copy.copy(person_info2)
+    person_info4['tpl_name'] = 'ex'
+    person_info4['sheet_name'] = 'cols'
+    payloads = [person_info, person_info2, person_info3, person_info4]
     writer.render_book(payloads=payloads)
     fname = os.path.join(pth, 'result00.xlsx')
     writer.save(fname)
