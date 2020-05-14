@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-
 import xlrd
 import xlwt
 import six
@@ -28,7 +27,7 @@ def get_type(value):
     return value, dt
 
 
-
+# adapted from xlutils.filter
 class WriterBase():
 
     def __init__(self, fname):
@@ -178,7 +177,7 @@ class SheetWriter():
         self.wtbook = wtbook
         self.style_list = rdbook.style_list
         self.create_worksheet(rdsheet, wtsheet_name)
-        self.copy_col_dimisions()
+        self.wtcols = set()
 
     def create_worksheet(self, rdsheet, wtsheet_name):
 
@@ -324,15 +323,16 @@ class SheetWriter():
             if rdrow.has_default_xf_index:
                 wtrow.set_style(self.style_list[rdrow.xf_index])
 
-    def copy_col_dimisions(self ):
-        for colx,rdcol in self.rdsheet.colinfo_map.items():
-            #rdcol = self.rdsheet.colinfo_map[colx]
-            wtcol = self.wtsheet.col(colx)
+    def copy_col_dimision(self, rdcolx, wtcolx):
+        if wtcolx not in self.wtcols and rdcolx in self.rdsheet.colinfo_map:
+            rdcol = self.rdsheet.colinfo_map[rdcolx]
+            wtcol = self.wtsheet.col(wtcolx)
             wtcol.width = rdcol.width
             wtcol.set_style(self.style_list[rdcol.xf_index])
             wtcol.hidden = rdcol.hidden
             wtcol.level = rdcol.outline_level
             wtcol.collapsed = rdcol.collapsed
+            self.wtcols.add(wtcolx)
 
     def set_mc_ranges(self):
         for key, crange in self.wtsheet.mc_ranges.items():
@@ -342,6 +342,7 @@ class SheetWriter():
 
 
     def cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value, cty):
+        self.copy_col_dimision(rdcolx, wtcolx)
         cell = self.rdsheet.cell(rdrowx, rdcolx)
         if cty is None:
             value, cty = get_type(value)

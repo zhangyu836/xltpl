@@ -6,12 +6,14 @@ from jinja2 import Environment
 from openpyxl import load_workbook
 from openpyxl.cell.text import InlineFont
 from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
+from openpyxl.utils import column_index_from_string, get_column_letter
 
 from .utils import tag_test, parse_tag, xv_test
 from .xlnode import SheetNodes, Row, Cell, EmptyCell, RichCell, TagCell, XvCell, RichTagCell, SheetPos
 from .xlext import CellExtension, RowExtension, SectionExtension, XvExtension
 from .ynext import YnExtension
 from .richtexthandler import rich_handlerx
+
 
 class SheetWriter():
 
@@ -21,15 +23,30 @@ class SheetWriter():
         self.wtsheet = self.workbook.create_sheet(title=sheet_name)
         self.copy_sheet_settings()
         self.wtsheet.mc_ranges = {}
+        self.wtcols = set()
+        self.rdsheet_column_dimensions = {}
+        for key, dim in self.rdsheet.column_dimensions.items():
+            index = column_index_from_string(key)
+            self.rdsheet_column_dimensions[index] = dim
+
+    def copy_col_dimension(self, rdcolx, wtcolx):
+        if wtcolx in self.wtcols or rdcolx not in self.rdsheet_column_dimensions:
+            return
+        rddim = self.rdsheet_column_dimensions[rdcolx]
+        wtdim = copy.copy(rddim)
+        if rdcolx != wtcolx:
+            key = get_column_letter(wtcolx)
+            wtdim.index = key
+            d = wtcolx - rdcolx
+            wtdim.min += d
+            wtdim.max += d
+        else:
+            key = rddim.index
+        self.wtsheet.column_dimensions[key] = wtdim
+        self.wtsheet.column_dimensions[key].worksheet = self.wtsheet
+        self.wtcols.add(wtcolx)
 
     def copy_sheet_settings(self):
-        # copy col dimensions
-        source = self.rdsheet.column_dimensions
-        target = self.wtsheet.column_dimensions
-        for key, dim in source.items():
-            target[key] = copy.copy(dim)
-            target[key].worksheet = self.wtsheet
-            
         self.wtsheet.sheet_format = copy.copy(self.rdsheet.sheet_format)
         self.wtsheet.sheet_properties = copy.copy(self.rdsheet.sheet_properties)
         #self.wtsheet.merged_cells = MultiCellRange()
@@ -52,6 +69,7 @@ class SheetWriter():
             target[wtrowx].worksheet = self.wtsheet
 
     def cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value, data_type=None):
+        self.copy_col_dimension(rdcolx, wtcolx)
         source_cell  = self.rdsheet._cells[(rdrowx, rdcolx)]
         target_cell = self.wtsheet.cell(column=wtcolx, row=wtrowx)
         if data_type:
