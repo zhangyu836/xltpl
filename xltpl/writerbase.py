@@ -323,7 +323,7 @@ class SheetWriter():
             if rdrow.has_default_xf_index:
                 wtrow.set_style(self.style_list[rdrow.xf_index])
 
-    def copy_col_dimision(self, rdcolx, wtcolx):
+    def copy_col_dimension(self, rdcolx, wtcolx):
         if wtcolx not in self.wtcols and rdcolx in self.rdsheet.colinfo_map:
             rdcol = self.rdsheet.colinfo_map[rdcolx]
             wtcol = self.wtsheet.col(wtcolx)
@@ -342,7 +342,7 @@ class SheetWriter():
 
 
     def cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value, cty):
-        self.copy_col_dimision(rdcolx, wtcolx)
+        self.copy_col_dimension(rdcolx, wtcolx)
         cell = self.rdsheet.cell(rdrowx, rdcolx)
         if cty is None:
             value, cty = get_type(value)
