@@ -6,7 +6,7 @@ from jinja2 import Environment
 from openpyxl import load_workbook
 from openpyxl.cell.text import InlineFont
 from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
-from openpyxl.utils import column_index_from_string, get_column_letter
+from openpyxl.utils import get_column_letter
 
 from .utils import tag_test, parse_tag, xv_test
 from .xlnode import SheetNodes, Row, Cell, EmptyCell, RichCell, TagCell, XvCell, RichTagCell, SheetPos
@@ -24,26 +24,25 @@ class SheetWriter():
         self.copy_sheet_settings()
         self.wtsheet.mc_ranges = {}
         self.wtcols = set()
-        self.rdsheet_column_dimensions = {}
-        for key, dim in self.rdsheet.column_dimensions.items():
-            index = column_index_from_string(key)
-            self.rdsheet_column_dimensions[index] = dim
 
     def copy_col_dimension(self, rdcolx, wtcolx):
-        if wtcolx in self.wtcols or rdcolx not in self.rdsheet_column_dimensions:
+        if wtcolx in self.wtcols:
             return
-        rddim = self.rdsheet_column_dimensions[rdcolx]
+        rdkey = get_column_letter(rdcolx)
+        rddim = self.rdsheet.column_dimensions.get(rdkey)
+        if not rddim:
+            return
         wtdim = copy.copy(rddim)
         if rdcolx != wtcolx:
-            key = get_column_letter(wtcolx)
-            wtdim.index = key
+            wtkey = get_column_letter(wtcolx)
+            wtdim.index = wtkey
             d = wtcolx - rdcolx
             wtdim.min += d
             wtdim.max += d
         else:
-            key = rddim.index
-        self.wtsheet.column_dimensions[key] = wtdim
-        self.wtsheet.column_dimensions[key].worksheet = self.wtsheet
+            wtkey = rdkey
+        self.wtsheet.column_dimensions[wtkey] = wtdim
+        self.wtsheet.column_dimensions[wtkey].worksheet = self.wtsheet
         self.wtcols.add(wtcolx)
 
     def copy_sheet_settings(self):
@@ -70,6 +69,7 @@ class SheetWriter():
 
     def cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value, data_type=None):
         self.copy_col_dimension(rdcolx, wtcolx)
+        self.merge_cell(rdrowx, rdcolx, wtrowx, wtcolx)
         source_cell  = self.rdsheet._cells[(rdrowx, rdcolx)]
         target_cell = self.wtsheet.cell(column=wtcolx, row=wtrowx)
         if data_type:
@@ -84,6 +84,7 @@ class SheetWriter():
         #if source_cell.comment:
         #    target_cell.comment = copy.copy(source_cell.comment)
 
+    def merge_cell(self, rdrowx, rdcolx, wtrowx, wtcolx):
         rdcoords2d = (rdrowx, rdcolx)
         if rdcoords2d in self.rdsheet.mc_top_left_map:
             if self.wtsheet.mc_ranges.get(rdcoords2d):
