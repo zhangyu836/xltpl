@@ -57,6 +57,7 @@ class SheetWriter():
         self.wtsheet._print_area = copy.copy(self.rdsheet._print_area)
         self.wtsheet.page_margins = copy.copy(self.rdsheet.page_margins)
         self.wtsheet.protection = copy.copy(self.rdsheet.protection)
+        self.wtsheet.HeaderFooter = copy.copy(self.rdsheet.HeaderFooter)
 
     def row(self, rdrowx, wtrowx):
         # copy row dimension
