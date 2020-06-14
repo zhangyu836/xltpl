@@ -3,6 +3,7 @@
 import re
 import six
 from .utils import tag_test
+from .pos import Pos
 
 class Node(object):
 
@@ -54,7 +55,6 @@ class Row(Node):
 
     def process_rv(self, rv, sheet_pos):
         wtrowx = sheet_pos.next_row()
-        sheet_pos.wtsheet.row(self.rowx, wtrowx)
         return self.to_html()
 
     def to_html(self):
@@ -303,28 +303,12 @@ class SheetNodes(Node):
         return self.children_to_tag()
 
 
+class SheetPos(Pos):
 
-class SheetPos():
-
-    def __init__(self, wtsheet, sheet_nodes, first_row, first_col):
+    def __init__(self, wtsheet, sheet_nodes, min_row, min_col):
         self.wtsheet = wtsheet
         self.sheet_nodes = sheet_nodes
-        self.first_row = first_row - 1
-        self.first_col = first_col - 1
-        self.rowx = self.first_row
-        self.colx = self.first_col
-
-    def next_cell(self):
-        self.colx += 1
-        return self.rowx, self.colx
-
-    def next_row(self):
-        self.rowx += 1
-        self.colx = self.first_col
-        return self.rowx
-
-    def coords(self):
-        return self.rowx, self.colx
+        Pos.__init__(self, min_row, min_col)
 
     def get_node(self, key):
         self.current_node = self.sheet_nodes.node_map.get(key)

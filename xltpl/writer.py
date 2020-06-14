@@ -3,7 +3,7 @@
 import six
 from jinja2 import Environment
 
-from .writerbase import WriterBase, SheetWriter
+from .base import BookBase, SheetBase
 
 from .utils import tag_test, parse_tag, xv_test
 from .xlnode import SheetNodes, Row, Cell, EmptyCell, RichCell, TagCell, XvCell, RichTagCell, SheetPos
@@ -11,53 +11,28 @@ from .xlext import CellExtension, RowExtension, SectionExtension, XvExtension
 from .ynext import YnExtension
 from .richtexthandler import rich_handler
 
+class SheetWriter(SheetBase):
+    pass
 
-
-
-class BookWriter(WriterBase):
+class BookWriter(BookBase):
 
     def __init__(self, fname):
-        self.sheet_list = []
-        self.sheet_name_map = {}
         self.load(fname)
 
     def load(self, fname):
-        WriterBase.load(self, fname)
+        BookBase.load(self, fname)
         self.prepare_env()
-        for rdsheet in self.rdbook.sheets():
-            self.get_sheet_mc_map(rdsheet)
+        self.sheet_nodes_list = []
+        for rdsheet in self.rdsheet_list:
             sheet_nodes = self.get_sheet_nodes(rdsheet)
             sheet_nodes.rich_handler = rich_handler
             tpl_source = sheet_nodes.to_tag()
             jinja_tpl = self.jinja_env.from_string(tpl_source)
-            self.sheet_list.append((sheet_nodes, jinja_tpl, rdsheet))
-            self.sheet_name_map[rdsheet.name] = len(self.sheet_name_map)
+            self.sheet_nodes_list.append((sheet_nodes, jinja_tpl, rdsheet))
 
     def prepare_env(self):
         self.jinja_env = Environment(extensions=[CellExtension, RowExtension, SectionExtension, YnExtension, XvExtension])
         self.jinja_env.xlsx = False
-
-
-    def get_rich_text(self, sheet, rowx, colx):
-        cell_value = sheet.cell_value(rowx, colx)
-        if not cell_value:
-            return
-        runlist = sheet.rich_text_runlist_map.get((rowx, colx))
-        if runlist:
-            rich_text = []
-            for idx,(start,font_idx) in enumerate(runlist):
-                end = None
-                if idx != len(runlist) - 1:
-                    end = runlist[idx + 1][0]
-                text = cell_value[start:end]
-                font = self._get_font(font_idx)
-                rich_text.append((text, font))
-            if runlist[0][0] != 0:
-                text = cell_value[:runlist[0][0]]
-                xf = self.rdbook.xf_list[sheet.cell_xf_index(rowx, colx)]
-                font = self._get_font(xf.font_index)
-                rich_text.insert(0, (text, font))
-            return rich_text
 
     def get_sheet_nodes(self, sheet):
         sheet_nodes = SheetNodes()
@@ -100,30 +75,11 @@ class BookWriter(WriterBase):
         return sheet_nodes
 
     def render_sheet(self, payload, sheet_name, idx):
-        sheet_nodes, jinja_tpl, rdsheet = self.sheet_list[idx]
-        sheet_writer = SheetWriter(self, self.wtbook, rdsheet, sheet_name)
+        sheet_nodes, jinja_tpl, rdsheet = self.sheet_nodes_list[idx]
+        sheet_writer = SheetWriter(self, rdsheet, sheet_name)
         self.jinja_env.sheet_pos = SheetPos(sheet_writer, sheet_nodes, 0, 0)
         rv = jinja_tpl.render(payload)
         sheet_writer.set_mc_ranges()
-
-    def get_tpl_idx(self, payload):
-        idx = payload.get('tpl_idx')
-        if not idx:
-            name = payload.get('tpl_name')
-            if name:
-                idx = self.sheet_name_map[name]
-            else:
-                idx = 0
-        return idx
-
-    def get_sheet_name(self, payload, key=None):
-        name = payload.get('sheet_name')
-        if not name:
-            if key:
-                name = key
-            else:
-                name = 'XLSheet%d' % len(self.wtbook.wtsheet_names)
-        return name
 
     def render_book(self, payloads):
         self.create_workbook()
@@ -147,13 +103,11 @@ class BookWriter(WriterBase):
             self.render_sheet(payload['ctx'], sheet_name, idx)
         self.wtbook.set_active_sheet(0)
 
-
     def render(self, payload):
         idx = self.get_tpl_idx(payload)
         sheet_name = self.get_sheet_name(payload)
         self.render_sheet(payload, sheet_name, idx)
         self.wtbook.set_active_sheet(0)
-
 
     def save(self, fname):
         if self.wtbook is not None:

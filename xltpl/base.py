@@ -28,155 +28,16 @@ def get_type(value):
 
 
 # adapted from xlutils.filter
-class WriterBase():
 
-    def __init__(self, fname):
-        self.load(fname)
 
-    def load(self, fname):
-        self.rdbook = rdbook = xlrd.open_workbook(fname, formatting_info=True)
-        self.style_list = []
-        self.font_map = {}
-        for rdxf in rdbook.xf_list:
-            wtxf = xlwt.Style.XFStyle()
-            #
-            # number format
-            #
-            wtxf.num_format_str = rdbook.format_map[rdxf.format_key].format_str
-            #
-            # font
-            #
-            wtf = wtxf.font
-            rdf = rdbook.font_list[rdxf.font_index]
-            wtf.height = rdf.height
-            wtf.italic = rdf.italic
-            wtf.struck_out = rdf.struck_out
-            wtf.outline = rdf.outline
-            wtf.shadow = rdf.outline
-            wtf.colour_index = rdf.colour_index
-            wtf.bold = rdf.bold  #### This attribute is redundant, should be driven by weight
-            wtf._weight = rdf.weight  #### Why "private"?
-            wtf.escapement = rdf.escapement
-            wtf.underline = rdf.underline_type  ####
-            # wtf.???? = rdf.underline #### redundant attribute, set on the fly when writing
-            wtf.family = rdf.family
-            wtf.charset = rdf.character_set
-            wtf.name = rdf.name
-            self.font_map[rdxf.font_index] = wtf
-            #
-            # protection
-            #
-            wtp = wtxf.protection
-            rdp = rdxf.protection
-            wtp.cell_locked = rdp.cell_locked
-            wtp.formula_hidden = rdp.formula_hidden
-            #
-            # border(s) (rename ????)
-            #
-            wtb = wtxf.borders
-            rdb = rdxf.border
-            wtb.left = rdb.left_line_style
-            wtb.right = rdb.right_line_style
-            wtb.top = rdb.top_line_style
-            wtb.bottom = rdb.bottom_line_style
-            wtb.diag = rdb.diag_line_style
-            wtb.left_colour = rdb.left_colour_index
-            wtb.right_colour = rdb.right_colour_index
-            wtb.top_colour = rdb.top_colour_index
-            wtb.bottom_colour = rdb.bottom_colour_index
-            wtb.diag_colour = rdb.diag_colour_index
-            wtb.need_diag1 = rdb.diag_down
-            wtb.need_diag2 = rdb.diag_up
-            #
-            # background / pattern (rename???)
-            #
-            wtpat = wtxf.pattern
-            rdbg = rdxf.background
-            wtpat.pattern = rdbg.fill_pattern
-            wtpat.pattern_fore_colour = rdbg.pattern_colour_index
-            wtpat.pattern_back_colour = rdbg.background_colour_index
-            #
-            # alignment
-            #
-            wta = wtxf.alignment
-            rda = rdxf.alignment
-            wta.horz = rda.hor_align
-            wta.vert = rda.vert_align
-            wta.dire = rda.text_direction
-            # wta.orie # orientation doesn't occur in BIFF8! Superceded by rotation ("rota").
-            wta.rota = rda.rotation
-            wta.wrap = rda.text_wrapped
-            wta.shri = rda.shrink_to_fit
-            wta.inde = rda.indent_level
-            # wta.merg = ????
-            #
-            self.style_list.append(wtxf)
+class SheetBase():
 
-    def get_sheet_mc_map(self, sheet):
-        mc_map = {}
-        mc_nfa = {}
-        for crange in sheet.merged_cells:
-            rlo, rhi, clo, chi = crange
-            mc_map[(rlo, clo)] = crange
-            for rowx in range(rlo, rhi):
-                for colx in range(clo, chi):
-                    mc_nfa[(rowx, colx)] = (rlo, clo)
-        sheet.mc_top_left_map = mc_map
-        sheet.mc_already_set = mc_nfa
-
-    def create_workbook(self):
-
-        self.wtbook = xlwt.Workbook(style_compression=2)
-        self.wtbook.dates_1904 = self.rdbook.datemode
-        self.wtbook.wtsheet_names = set()
-
-        # Set the default style and the default font
-        idx = self.wtbook.add_style(None)
-        if idx == 0x10:
-            return
-        for idx, wtxf in enumerate(self.style_list):
-            self.wtbook.add_style(wtxf)
-            if idx == 15:
-                return
-        wtxf = self.style_list[0]
-        for _ in range(15 - idx):
-            self.wtbook.add_style(wtxf)
-        return self.wtbook
-
-    def _get_font(self, index):
-        wtf = self.font_map.get(index)
-        if wtf:
-            return wtf
-        else:
-            wtf = xlwt.Font()
-            rdf = self.rdbook.font_list[index]
-            wtf.height = rdf.height
-            wtf.italic = rdf.italic
-            wtf.struck_out = rdf.struck_out
-            wtf.outline = rdf.outline
-            wtf.shadow = rdf.outline
-            wtf.colour_index = rdf.colour_index
-            wtf.bold = rdf.bold
-            wtf._weight = rdf.weight
-            wtf.escapement = rdf.escapement
-            wtf.underline = rdf.underline_type
-            wtf.family = rdf.family
-            wtf.charset = rdf.character_set
-            wtf.name = rdf.name
-            self.font_map[index] = wtf
-            return wtf
-
-    def get_font(self, sheet, rowx, colx):
-        xf = self.rdbook.xf_list[sheet.cell_xf_index(rowx, colx)]
-        return self._get_font(xf.font_index)
-
-class SheetWriter():
-
-    def __init__(self, rdbook, wtbook, rdsheet, wtsheet_name):
-        self.rdbook = rdbook
-        self.wtbook = wtbook
-        self.style_list = rdbook.style_list
+    def __init__(self, bookwriter, rdsheet, wtsheet_name):
+        self.rdbook = bookwriter.rdbook
+        self.wtbook = bookwriter.wtbook
+        self.style_list = bookwriter.style_list
         self.create_worksheet(rdsheet, wtsheet_name)
+        self.wtrows = set()
         self.wtcols = set()
 
     def create_worksheet(self, rdsheet, wtsheet_name):
@@ -296,7 +157,7 @@ class SheetWriter():
             wtsheet.footer_margin = rdsheet.footer_margin
             wtsheet.copies_num = rdsheet.copies_num
 
-    def row(self, rdrowx, wtrowx):
+    def copy_row_dimension(self, rdrowx, wtrowx):
         """
         This should be called every time processing of a new
         row in the current sheet starts.
@@ -308,6 +169,8 @@ class SheetWriter():
         :param wtrowx: the index of the row in sheet to be written to which
                  information will be written for the row being read.
         """
+        if wtrowx in self.wtrows or rdrowx not in self.rdsheet.rowinfo_map:
+            return
         wtrow = self.wtsheet.row(wtrowx)
         # empty rows may not have a rowinfo record
         rdrow = self.rdsheet.rowinfo_map.get(rdrowx)
@@ -322,6 +185,7 @@ class SheetWriter():
             wtrow.space_below = rdrow.additional_space_below
             if rdrow.has_default_xf_index:
                 wtrow.set_style(self.style_list[rdrow.xf_index])
+            self.wtrows.add(wtrowx)
 
     def copy_col_dimension(self, rdcolx, wtcolx):
         if wtcolx not in self.wtcols and rdcolx in self.rdsheet.colinfo_map:
@@ -334,16 +198,17 @@ class SheetWriter():
             wtcol.collapsed = rdcol.collapsed
             self.wtcols.add(wtcolx)
 
-    def set_mc_ranges(self):
-        for key, crange in self.wtsheet.mc_ranges.items():
-            self.wtsheet.merged_ranges.append(crange)
-        #for key, crange in self.wtsheet.mc_ranges_already_set.items():
-        #    self.wtsheet.merged_ranges.append(crange)
+    def _get_cell(self, rdrowx, rdcolx):
+        try:
+            return self.rdsheet.cell(rdrowx, rdcolx)
+        except:
+            return xlrd.sheet.Cell(xlrd.XL_CELL_TEXT, '', 0)
 
-
-    def cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value, cty):
-        self.copy_col_dimension(rdcolx, wtcolx)
-        cell = self.rdsheet.cell(rdrowx, rdcolx)
+    def _cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value=None, cty=None):
+        cell = self._get_cell(rdrowx, rdcolx)
+        if value is None:
+            value = cell.value
+            cty = cell.ctype
         if cty is None:
             value, cty = get_type(value)
 
@@ -353,18 +218,6 @@ class SheetWriter():
             style = self.style_list[cell.xf_index]
         else:
             style = self.style_list[0]
-        rdcoords2d = (rdrowx, rdcolx)
-        if rdcoords2d in self.rdsheet.mc_top_left_map:
-            if self.wtsheet.mc_ranges.get(rdcoords2d):
-                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(rdcoords2d)
-                self.wtsheet.merged_ranges.append((rlo, rhi, clo, chi))
-                #self.wtsheet.mc_ranges_already_set[(rlo, clo)] = (rlo, rhi, clo, chi)
-            self.wtsheet.mc_ranges[rdcoords2d] = (wtrowx, wtrowx, wtcolx, wtcolx)
-        else:
-            mc_top_left = self.rdsheet.mc_already_set.get(rdcoords2d)
-            if mc_top_left:
-                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(mc_top_left)
-                self.wtsheet.mc_ranges[mc_top_left] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
 
         wtrow = self.wtsheet.row(wtrowx)
         if cty == xlrd.XL_CELL_TEXT:
@@ -385,6 +238,216 @@ class SheetWriter():
                 "Unknown xlrd cell type %r with value %r at (sheet=%r,rowx=%r,colx=%r)" \
                 % (cty, value, self.rdsheet.name, rdrowx, rdcolx)
             )
+
+    def cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value=None, cty=None):
+        self.copy_row_dimension(rdrowx, wtrowx)
+        self.copy_col_dimension(rdcolx, wtcolx)
+        self.merge_cell(rdrowx, rdcolx, wtrowx, wtcolx)
+        self._cell(rdrowx, rdcolx, wtrowx, wtcolx, value, cty)
+
+    def merge_cell(self, rdrowx, rdcolx, wtrowx, wtcolx):
+        rdcoords2d = (rdrowx, rdcolx)
+        if rdcoords2d in self.rdsheet.mc_top_left_map:
+            if self.wtsheet.mc_ranges.get(rdcoords2d):
+                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(rdcoords2d)
+                self.wtsheet.merged_ranges.append((rlo, rhi, clo, chi))
+            self.wtsheet.mc_ranges[rdcoords2d] = (wtrowx, wtrowx, wtcolx, wtcolx)
+        else:
+            mc_top_left = self.rdsheet.mc_already_set.get(rdcoords2d)
+            if mc_top_left:
+                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(mc_top_left)
+                self.wtsheet.mc_ranges[mc_top_left] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
+
+    def set_mc_ranges(self):
+        for key, crange in self.wtsheet.mc_ranges.items():
+            self.wtsheet.merged_ranges.append(crange)
+
+class BookBase():
+
+    def load(self, fname):
+        self.load_rdbook(fname)
+        self.sheet_name_map = {}
+        self.rdsheet_list = []
+        for rdsheet in self.rdbook.sheets():
+            self.get_sheet_mc_map(rdsheet)
+            self.sheet_name_map[rdsheet.name] = len(self.sheet_name_map)
+            self.rdsheet_list.append(rdsheet)
+
+    def load_rdbook(self, fname):
+        self.rdbook = rdbook = xlrd.open_workbook(fname, formatting_info=True)
+        self.style_list = []
+        self.font_map = {}
+        for rdxf in rdbook.xf_list:
+            wtxf = xlwt.Style.XFStyle()
+            #
+            # number format
+            #
+            wtxf.num_format_str = rdbook.format_map[rdxf.format_key].format_str
+            #
+            # font
+            #
+            wtf = wtxf.font
+            rdf = rdbook.font_list[rdxf.font_index]
+            wtf.height = rdf.height
+            wtf.italic = rdf.italic
+            wtf.struck_out = rdf.struck_out
+            wtf.outline = rdf.outline
+            wtf.shadow = rdf.outline
+            wtf.colour_index = rdf.colour_index
+            wtf.bold = rdf.bold  #### This attribute is redundant, should be driven by weight
+            wtf._weight = rdf.weight  #### Why "private"?
+            wtf.escapement = rdf.escapement
+            wtf.underline = rdf.underline_type  ####
+            # wtf.???? = rdf.underline #### redundant attribute, set on the fly when writing
+            wtf.family = rdf.family
+            wtf.charset = rdf.character_set
+            wtf.name = rdf.name
+            self.font_map[rdxf.font_index] = wtf
+            #
+            # protection
+            #
+            wtp = wtxf.protection
+            rdp = rdxf.protection
+            wtp.cell_locked = rdp.cell_locked
+            wtp.formula_hidden = rdp.formula_hidden
+            #
+            # border(s) (rename ????)
+            #
+            wtb = wtxf.borders
+            rdb = rdxf.border
+            wtb.left = rdb.left_line_style
+            wtb.right = rdb.right_line_style
+            wtb.top = rdb.top_line_style
+            wtb.bottom = rdb.bottom_line_style
+            wtb.diag = rdb.diag_line_style
+            wtb.left_colour = rdb.left_colour_index
+            wtb.right_colour = rdb.right_colour_index
+            wtb.top_colour = rdb.top_colour_index
+            wtb.bottom_colour = rdb.bottom_colour_index
+            wtb.diag_colour = rdb.diag_colour_index
+            wtb.need_diag1 = rdb.diag_down
+            wtb.need_diag2 = rdb.diag_up
+            #
+            # background / pattern (rename???)
+            #
+            wtpat = wtxf.pattern
+            rdbg = rdxf.background
+            wtpat.pattern = rdbg.fill_pattern
+            wtpat.pattern_fore_colour = rdbg.pattern_colour_index
+            wtpat.pattern_back_colour = rdbg.background_colour_index
+            #
+            # alignment
+            #
+            wta = wtxf.alignment
+            rda = rdxf.alignment
+            wta.horz = rda.hor_align
+            wta.vert = rda.vert_align
+            wta.dire = rda.text_direction
+            # wta.orie # orientation doesn't occur in BIFF8! Superceded by rotation ("rota").
+            wta.rota = rda.rotation
+            wta.wrap = rda.text_wrapped
+            wta.shri = rda.shrink_to_fit
+            wta.inde = rda.indent_level
+            # wta.merg = ????
+            #
+            self.style_list.append(wtxf)
+
+    def get_sheet_mc_map(self, sheet):
+        mc_map = {}
+        mc_nfa = {}
+        for crange in sheet.merged_cells:
+            rlo, rhi, clo, chi = crange
+            mc_map[(rlo, clo)] = crange
+            for rowx in range(rlo, rhi):
+                for colx in range(clo, chi):
+                    mc_nfa[(rowx, colx)] = (rlo, clo)
+        sheet.mc_top_left_map = mc_map
+        sheet.mc_already_set = mc_nfa
+
+    def create_workbook(self):
+        self.wtbook = xlwt.Workbook(style_compression=2)
+        self.wtbook.dates_1904 = self.rdbook.datemode
+        self.wtbook.wtsheet_names = set()
+
+        # Set the default style and the default font
+        idx = self.wtbook.add_style(None)
+        if idx == 0x10:
+            return
+        for idx, wtxf in enumerate(self.style_list):
+            self.wtbook.add_style(wtxf)
+            if idx == 15:
+                return
+        wtxf = self.style_list[0]
+        for _ in range(15 - idx):
+            self.wtbook.add_style(wtxf)
+        return self.wtbook
+
+    def _get_font(self, index):
+        wtf = self.font_map.get(index)
+        if wtf:
+            return wtf
+        else:
+            wtf = xlwt.Font()
+            rdf = self.rdbook.font_list[index]
+            wtf.height = rdf.height
+            wtf.italic = rdf.italic
+            wtf.struck_out = rdf.struck_out
+            wtf.outline = rdf.outline
+            wtf.shadow = rdf.outline
+            wtf.colour_index = rdf.colour_index
+            wtf.bold = rdf.bold
+            wtf._weight = rdf.weight
+            wtf.escapement = rdf.escapement
+            wtf.underline = rdf.underline_type
+            wtf.family = rdf.family
+            wtf.charset = rdf.character_set
+            wtf.name = rdf.name
+            self.font_map[index] = wtf
+            return wtf
+
+    def get_font(self, sheet, rowx, colx):
+        xf = self.rdbook.xf_list[sheet.cell_xf_index(rowx, colx)]
+        return self._get_font(xf.font_index)
+
+    def get_rich_text(self, sheet, rowx, colx):
+        cell_value = sheet.cell_value(rowx, colx)
+        if not cell_value:
+            return
+        runlist = sheet.rich_text_runlist_map.get((rowx, colx))
+        if runlist:
+            rich_text = []
+            for idx,(start,font_idx) in enumerate(runlist):
+                end = None
+                if idx != len(runlist) - 1:
+                    end = runlist[idx + 1][0]
+                text = cell_value[start:end]
+                font = self._get_font(font_idx)
+                rich_text.append((text, font))
+            if runlist[0][0] != 0:
+                text = cell_value[:runlist[0][0]]
+                xf = self.rdbook.xf_list[sheet.cell_xf_index(rowx, colx)]
+                font = self._get_font(xf.font_index)
+                rich_text.insert(0, (text, font))
+            return rich_text
+
+    def get_tpl_idx(self, payload):
+        idx = payload.get('tpl_idx')
+        if not idx:
+            name = payload.get('tpl_name')
+            if name:
+                idx = self.sheet_name_map[name]
+            else:
+                idx = 0
+        return idx
+
+    def get_sheet_name(self, payload, key=None):
+        name = payload.get('sheet_name')
+        if not name:
+            if key:
+                name = key
+            else:
+                name = 'XLSheet%d' % len(self.wtbook.wtsheet_names)
+        return name
 
 
 

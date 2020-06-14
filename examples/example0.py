@@ -4,12 +4,13 @@ import os
 import copy
 from datetime import datetime
 from xltpl.writer import BookWriter
+from xltpl.writerx import BookWriter as BookWriterx
 
 
-def write_test():
+def write_test(writer_cls, tpl_fname, result_fname0, result_fname1):
     pth = os.path.dirname(__file__)
-    fname = os.path.join(pth, 'example.xls')
-    writer = BookWriter(fname)
+    fname = os.path.join(pth, tpl_fname)
+    writer = writer_cls(fname)
     writer.jinja_env.globals.update(dir=dir, getattr=getattr)
 
     now = datetime.now()
@@ -37,14 +38,24 @@ def write_test():
     person_info4['sheet_name'] = 'cols'
     payloads = [person_info, person_info2, person_info3, person_info4]
     writer.render_book(payloads=payloads)
-    fname = os.path.join(pth, 'result00.xls')
+    fname = os.path.join(pth, result_fname0)
     writer.save(fname)
     payloads = [person_info3, person_info, person_info2]
     writer.render_book(payloads=payloads)
     writer.render_sheet(person_info2, 'form2', 1)
-    fname = os.path.join(pth, 'result01.xls')
+    fname = os.path.join(pth, result_fname1)
     writer.save(fname)
 
 
 if __name__ == "__main__":
-    write_test()
+    tpl_name = 'example.xls'
+    result_fname0 = 'result00.xls'
+    result_fname1 = 'result01.xls'
+    writer_cls = BookWriter
+    write_test(writer_cls, tpl_name, result_fname0, result_fname1)
+
+    tpl_name = 'example.xlsx'
+    result_fname0 = 'result00.xlsx'
+    result_fname1 = 'result01.xlsx'
+    writer_cls = BookWriterx
+    write_test(writer_cls, tpl_name, result_fname0, result_fname1)
