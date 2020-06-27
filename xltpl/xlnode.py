@@ -305,10 +305,10 @@ class SheetNodes(Node):
 
 class SheetPos(Pos):
 
-    def __init__(self, wtsheet, sheet_nodes, min_row, min_col):
+    def __init__(self, wtsheet, sheet_nodes, min_rowx, min_colx):
         self.wtsheet = wtsheet
         self.sheet_nodes = sheet_nodes
-        Pos.__init__(self, min_row, min_col)
+        Pos.__init__(self, min_rowx, min_colx)
 
     def get_node(self, key):
         self.current_node = self.sheet_nodes.node_map.get(key)

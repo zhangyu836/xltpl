@@ -7,13 +7,13 @@ from .pos import Pos
 class SheetWriterBase():
 
     def set_range(self, body_row):
-        self.head_range = range(self.min_row, body_row)
+        self.head_range = range(self.min_rowx, body_row)
         self.body_row = body_row
-        self.foot_range = range(body_row + 1, self.max_row + self.min_row)
+        self.foot_range = range(body_row + 1, self.max_rowx + 1)
 
     def copy_row(self, rdrowx):
         self.pos.next_row()
-        for rdcolx in range(self.min_col, self.max_col + 1):
+        for rdcolx in range(self.min_colx, self.max_colx + 1):
             wtrowx, wtcolx = self.pos.next_cell()
             self.cell(rdrowx, rdcolx, wtrowx, wtcolx)
 
@@ -31,9 +31,9 @@ class SheetWriterBase():
         self.pos.next_row()
         for index,cell_value in enumerate(row):
             wtrowx, wtcolx = self.pos.next_cell()
-            self.cell(rdrowx, index + self.min_col, wtrowx, wtcolx, cell_value)
-        next_col = index + self.min_col + 1
-        for rdcolx in range(next_col, self.max_col + 1):
+            self.cell(rdrowx, index + self.index_base, wtrowx, wtcolx, cell_value)
+        next_col = index + self.index_base + 1
+        for rdcolx in range(next_col, self.max_colx + 1):
             wtrowx, wtcolx = self.pos.next_cell()
             self.cell(rdrowx, rdcolx, wtrowx, wtcolx, '')
 
@@ -52,23 +52,25 @@ class SheetWriter(SheetWriterBase, SheetBase):
 
     def __init__(self, bookwriter, rdsheet, sheet_name):
         SheetBase.__init__(self, bookwriter, rdsheet, sheet_name)
-        self.min_row = 0
-        self.min_col = 0
-        self.max_row = rdsheet.nrows
-        self.max_col = rdsheet.ncols
+        self.min_rowx = 0
+        self.min_colx = 0
+        self.index_base = 0
+        self.max_rowx = rdsheet.nrows - 1
+        self.max_colx = rdsheet.ncols - 1
         self.set_range(rdsheet.body_row - 1)
-        self.pos = Pos(self.min_row, self.min_col)
+        self.pos = Pos(self.min_rowx, self.min_colx)
 
 class SheetWriterx(SheetWriterBase, SheetBasex):
 
     def __init__(self, bookwriter, rdsheet, sheet_name):
         SheetBasex.__init__(self, bookwriter, rdsheet, sheet_name)
-        self.min_row = 1
-        self.min_col = 1
-        self.max_row = rdsheet.max_row
-        self.max_col = rdsheet.max_column
+        self.min_rowx = 1
+        self.min_colx = 1
+        self.index_base = 1
+        self.max_rowx = rdsheet.max_row
+        self.max_colx = rdsheet.max_column
         self.set_range(rdsheet.body_row)
-        self.pos = Pos(self.min_row, self.min_col)
+        self.pos = Pos(self.min_rowx, self.min_colx)
 
 class BookWriterBase():
 
@@ -92,15 +94,15 @@ class BookWriterBase():
             sheet_writer = self.get_sheet_writer(sheet_name, rdsheet_idx)
             sheet_writer.write_sheet(ls)
 
-    def write_payload(self, payload):
+    def write_payload(self, payload, body_row_name='data'):
         idx = self.get_tpl_idx(payload)
         sheet_name = BookBasex.get_sheet_name(self, payload)
-        ls = payload['data']
+        ls = payload[body_row_name]
         self.write_list(ls, sheet_name, idx)
 
-    def write_payloads(self, payloads):
+    def write_payloads(self, payloads, body_row_name='data'):
         for payload in payloads:
-            self.write_payload(payload)
+            self.write_payload(payload, body_row_name)
 
 
 class BookWriter(BookWriterBase, BookBase):
