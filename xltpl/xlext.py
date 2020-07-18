@@ -18,9 +18,10 @@ class CellExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _cell(self, key, caller):
-        cell = self.environment.sheet_pos.get_node(key)
+        current_pos = self.environment.sheet_pos.current_pos
+        cell = current_pos.get_node(key)
         rv = caller()
-        rv = cell.process_rv(rv, self.environment.sheet_pos)
+        rv = cell.process_rv(rv, current_pos)
         return rv
 
 class SectionExtension(Extension):
@@ -37,9 +38,10 @@ class SectionExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _sec(self, key, caller):
-        section = self.environment.sheet_pos.get_node(key)
+        current_pos = self.environment.sheet_pos.current_pos
+        section = current_pos.get_node(key)
         rv = caller()
-        rv = section.process_rv(rv, self.environment.sheet_pos)
+        rv = section.process_rv(rv, current_pos)
         return rv
 
 class RowExtension(Extension):
@@ -57,9 +59,8 @@ class RowExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _row(self, key, caller):
-        row = self.environment.sheet_pos.get_node(key)
         rv = caller()
-        rv = row.process_rv(rv, self.environment.sheet_pos)
+        rv = self.environment.sheet_pos.process_row(key, rv)
         return rv
 
 class XvExtension(Extension):
@@ -76,7 +77,8 @@ class XvExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _row(self, xv, caller):
-        node = self.environment.sheet_pos.current_node
+        current_pos = self.environment.sheet_pos.current_pos
+        node = current_pos.current_node
         #rv = caller()
         rv = node.process_xv(xv)
         return rv

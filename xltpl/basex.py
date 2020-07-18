@@ -105,6 +105,38 @@ class SheetBase():
                 rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(mc_top_left)
                 self.wtsheet.mc_ranges[mc_top_left] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
 
+    def _mcell(self, rdrowx, rdcolx, wtrowx, wtcolx):
+        source_cell = self._get_cell(rdrowx, rdcolx)
+        target_cell = self.wtsheet.cell(column=wtcolx, row=wtrowx)
+        if source_cell.has_style:
+            target_cell._style = copy.copy(source_cell._style)
+
+    def merge_mcell(self, rdrowx, rdcolx, wtrowx, wtcolx, wt_top):
+        rdcoords2d = (rdrowx, rdcolx)
+        if rdcoords2d in self.rdsheet.mc_top_left_map:
+            rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(rdcoords2d)
+            self.wtsheet.mc_ranges[rdcoords2d] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
+        else:
+            mc_top_left = self.rdsheet.mc_already_set.get(rdcoords2d)
+            if mc_top_left:
+                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(mc_top_left)
+                self.wtsheet.mc_ranges[mc_top_left] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
+            else:
+                key = (wt_top, rdcoords2d)
+                singel_cell_cr = self.wtsheet.mc_ranges.get(key)
+                if singel_cell_cr:
+                    rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(key)
+                else:
+                    rlo, rhi, clo, chi = wt_top, wtrowx, wtcolx, wtcolx
+                self.wtsheet.mc_ranges[key] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
+
+
+    def mcell(self, rdrowx, rdcolx, wtrowx, wtcolx, wt_top):
+        self.copy_row_dimension(rdrowx, wtrowx)
+        self.copy_col_dimension(rdcolx, wtcolx)
+        self.merge_mcell(rdrowx, rdcolx, wtrowx, wtcolx, wt_top)
+        self._mcell(rdrowx, rdcolx, wtrowx, wtcolx)
+
     def set_mc_ranges(self):
         for key,crange in self.wtsheet.mc_ranges.items():
             rlo, rhi, clo, chi = crange

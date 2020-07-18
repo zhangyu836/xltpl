@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import six
-from jinja2 import Environment
 
 from .base import BookBase, SheetBase
-
-from .utils import tag_test, parse_tag, xv_test
-from .xlnode import SheetNodes, Row, Cell, EmptyCell, RichCell, TagCell, XvCell, RichTagCell, SheetPos
+from .utils import Env
+from .utils import tag_test, xv_test
+from .xlnode import Row, Cell, EmptyCell, RichCell, TagCell, XvCell, RichTagCell
+from .xlrange import SheetRange
 from .xlext import CellExtension, RowExtension, SectionExtension, XvExtension
 from .ynext import YnExtension
 from .richtexthandler import rich_handler
@@ -16,44 +16,55 @@ class SheetWriter(SheetBase):
 
 class BookWriter(BookBase):
 
-    def __init__(self, fname):
+    def __init__(self, fname, debug=False):
+        self.debug = debug
         self.load(fname)
 
     def load(self, fname):
         BookBase.load(self, fname)
         self.prepare_env()
-        self.sheet_nodes_list = []
+        self.sheet_range_list = []
         for rdsheet in self.rdsheet_list:
-            sheet_nodes = self.get_sheet_nodes(rdsheet)
-            sheet_nodes.rich_handler = rich_handler
-            tpl_source = sheet_nodes.to_tag()
+            sheet_range = self.get_sheet_range(rdsheet)
+            if self.debug:
+                print('sheet name: ', rdsheet.name)
+                print('ranges specified')
+                sheet_range.print()
+            sheet_range.split()
+            if self.debug:
+                print('ranges split')
+                sheet_range.print_split()
+            sheet_range.rich_handler = rich_handler
+            tpl_source = sheet_range.to_tag()
+            if self.debug:
+                print('template source')
+                print(tpl_source)
             jinja_tpl = self.jinja_env.from_string(tpl_source)
-            self.sheet_nodes_list.append((sheet_nodes, jinja_tpl, rdsheet))
+            self.sheet_range_list.append((sheet_range, jinja_tpl, rdsheet))
 
     def prepare_env(self):
-        self.jinja_env = Environment(extensions=[CellExtension, RowExtension, SectionExtension, YnExtension, XvExtension])
+        self.jinja_env = Env(extensions=[CellExtension, RowExtension, SectionExtension,
+                                         YnExtension, XvExtension])
         self.jinja_env.xlsx = False
 
-    def get_sheet_nodes(self, sheet):
-        sheet_nodes = SheetNodes()
+    def get_sheet_range(self, sheet):
+        sheet_range = SheetRange(min_col=1, min_row=1, max_col=sheet.ncols,
+                                 max_row=sheet.nrows, index_base=0)
         for rowx in range(sheet.nrows):
-            for colx in range(sheet.row_len(rowx)):
+            for colx in range(sheet.ncols):
                 note = sheet.cell_note_map.get((rowx, colx))
-                tag_map = {}
-                if note and tag_test(note.text):
-                    tag_map = parse_tag(note.text)
-                if colx == 0:
-                    beforerow = tag_map.get('beforerow')
-                    if beforerow:
-                        sheet_nodes.add_child(beforerow)
-                    sheet_row = Row(rowx)
-                    sheet_nodes.add_child(sheet_row)
-                beforecell = tag_map.get('beforecell')
-                if beforecell:
-                    sheet_nodes.add_child(beforecell)
-
-                value = sheet.cell_value(rowx, colx)
-                cty = sheet.cell_type(rowx, colx)
+                if note:
+                    comment = note.text
+                    if tag_test(comment):
+                        sheet_range.parse_tag(comment, rowx, colx)
+                try:
+                    source_cell = sheet.cell(rowx, colx)
+                except:
+                    sheet_cell = EmptyCell(rowx, colx)
+                    sheet_range.add_cell(sheet_cell)
+                    continue
+                value = source_cell.value
+                cty = source_cell.ctype
                 rich_text = self.get_rich_text(sheet, rowx, colx)
                 if isinstance(value, six.text_type) and xv_test(value):
                     sheet_cell = XvCell(rowx, colx, value, cty)
@@ -68,16 +79,16 @@ class BookWriter(BookBase):
                         sheet_cell = Cell(rowx, colx, value, cty)
                     else:
                         sheet_cell = RichCell(rowx, colx, value, cty, rich_text)
-                sheet_nodes.add_child(sheet_cell)
-                aftercell = tag_map.get('aftercell')
-                if aftercell:
-                    sheet_nodes.add_child(aftercell)
-        return sheet_nodes
+                sheet_range.add_cell(sheet_cell)
+        return sheet_range
 
     def render_sheet(self, payload, sheet_name, idx):
-        sheet_nodes, jinja_tpl, rdsheet = self.sheet_nodes_list[idx]
+        sheet_range, jinja_tpl, rdsheet = self.sheet_range_list[idx]
         sheet_writer = SheetWriter(self, rdsheet, sheet_name)
-        self.jinja_env.sheet_pos = SheetPos(sheet_writer, sheet_nodes, 0, 0)
+        self.jinja_env.sheet_pos = sheet_range.get_pos(sheet_writer)
+        if self.debug:
+            print("range positions")
+            self.jinja_env.sheet_pos.print()
         rv = jinja_tpl.render(payload)
         sheet_writer.set_mc_ranges()
 
@@ -120,5 +131,3 @@ class BookWriter(BookBase):
         del self.rdbook
         del self.style_list
         del self.font_map
-
-
