@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import re
 
 BLOCK_START_STRING = '{%'
@@ -72,7 +73,7 @@ def parse_range_tag(txt):
     return None, None
 
 
-class TreeProperty():
+class TreeProperty(object):
 
     def __init__(self, name):
         self.name = name

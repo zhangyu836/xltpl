@@ -96,7 +96,7 @@ class BookWriterBase():
 
     def write_payload(self, payload, body_row_name='data'):
         idx = self.get_tpl_idx(payload)
-        sheet_name = BookBasex.get_sheet_name(self, payload)
+        sheet_name = self.get_sheet_name(payload)
         ls = payload[body_row_name]
         self.write_list(ls, sheet_name, idx)
 

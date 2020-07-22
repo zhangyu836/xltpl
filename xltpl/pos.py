@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from .utils import TreeProperty
+
 class Pos():
 
     def __init__(self, min_rowx, min_colx):
@@ -30,8 +33,6 @@ class Pos():
         self.colx = self.colx_start
         self.max_rowx = self.rowx_start
         self.max_colx = self.colx_start
-
-from .utils import TreeProperty
 
 class RangePos(Pos):
 
