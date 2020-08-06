@@ -232,8 +232,9 @@ class TagCell(Cell):
         return self.to_html(rv)
 
     def to_tag(self):
-        tag_section = TagSection(self.value, self.font)
-        self.add_child(tag_section)
+        if not self._children:
+            tag_section = TagSection(self.value, self.font)
+            self.add_child(tag_section)
         return Cell.to_tag(self)
 
     def to_html(self, value=None):

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
+from copy import copy
 
 from openpyxl.worksheet.cell_range import CellRange
 from openpyxl.utils.cell import coordinate_to_tuple
@@ -14,11 +15,20 @@ class XlRange(CellRange):
 
     node_map = TreeProperty('node_map')
     cell_map = TreeProperty('cell_map')
-    range_tag_map = TreeProperty('range_tag_map')
+    range_map = TreeProperty('range_map')
     cell_tag_map = TreeProperty('cell_tag_map')
 
     def __init__(self, range_string=None, min_col=None, min_row=None,
                  max_col=None, max_row=None, title=None, index_base=1):
+        name = ''
+        _replacement = ''
+        if range_string:
+            parts = range_string.split('|')
+            range_string = parts[0]
+            if len(parts) > 1:
+                name = parts[1]
+            if len(parts) > 2:
+                _replacement = parts[2]
         CellRange.__init__(self, range_string, min_col, min_row, max_col, max_row, title)
         self._children = []
         self._children_split = []
@@ -28,6 +38,11 @@ class XlRange(CellRange):
         self.max_rowx = self.max_row - offset
         self.min_colx = self.min_col - offset
         self.max_colx = self.max_col - offset
+        self.name = name
+        self._replacement = _replacement
+        self.range_tag = None
+        self.copy_count = 0
+        self.copy_no = 0
 
     def __str__(self):
         fmt = '%s -> %s'
@@ -35,27 +50,19 @@ class XlRange(CellRange):
 
     @property
     def rkey(self):
-        return '%s, %d' % (self.coord, self.depth)
-
-    @property
-    def root(self):
-        if not hasattr(self, '_root'):
-            if hasattr(self, 'parent'):
-                if self.parent is self:
-                    self._root = self
-                else:
-                    self._root = self.parent.root
-            else:
-                self._root = self
-                self.parent = self
-        return self._root
+        return '%s, %d%s' % (self.coord, self.depth, self.copy_no*'*')
 
     @property
     def depth(self):
-        if not hasattr(self, 'parent') or self.parent is self:
+        if not hasattr(self, 'parent') or self.parent is None or self.parent is self:
             return 0
         else:
             return self.parent.depth + 1
+
+    @property
+    def replacement(self):
+        if self._replacement:
+            return self.get_range(self._replacement)
 
     def print(self):
         print('\t' * self.depth, self)
@@ -66,6 +73,10 @@ class XlRange(CellRange):
         print('\t' * self.depth, self)
         for child in self._children_split:
             child.print_split()
+
+    def print_range_map(self):
+        for k,v in self.range_map.items():
+            print(k, v)
 
     def equal_col_span(self, other):
         return self.min_col == other.min_col and self.max_col == other.max_col
@@ -106,10 +117,6 @@ class XlRange(CellRange):
         min_row = self.min_row
         while self._children:
             center_range = self._children.pop(0)
-            if self == center_range:
-                self._children = center_range._children
-                self.split()
-                return
             if min_row < center_range.min_row:
                 up_range = HorizRange(min_row=min_row, max_row=center_range.min_row - 1,
                                       min_col=self.min_col, max_col=self.max_col, index_base=self.index_base)
@@ -165,24 +172,50 @@ class XlRange(CellRange):
             down_range.parent = self
             self._children_split.append(down_range)
 
-    def to_tag(self):
+    def copy(self, parent):
+        new_range = object.__new__(self.__class__)
+        new_range.__init__(min_col=self.min_col, min_row=self.min_row,
+                           max_col=self.max_col, max_row=self.max_row, index_base=self.index_base)
+        self.copy_count += 1
+        new_range.copy_no = self.copy_count
+        new_range.parent = parent
+        new_range.range_tag = copy(self.range_tag)
+        new_range._replacement = self._replacement
+        return new_range
+
+    def copy_subtree(self, parent):
+        _self = self.copy(parent)
+        for child in self._children_split:
+            _child = child.copy_subtree(_self)
+            _self._children_split.append(_child)
+        return _self
+
+    def copy_replacement(self, parent):
+        _replacement = self.replacement.copy_subtree(parent)
+        if self.range_tag:
+            if not _replacement.range_tag:
+                _replacement.range_tag = RangeTag()
+            _replacement.range_tag.merge(self.range_tag)
+        return _replacement
+
+    def to_tpl(self):
         if self._children_split:
             tags = []
             for child in self._children_split:
-                range_tag = self.range_tag_map.get(child.coord)
+                if child.replacement:
+                    index = self._children_split.index(child)
+                    child = child.copy_replacement(self)
+                    self._children_split[index] = child
+                range_tag = child.range_tag
                 if range_tag and range_tag.beforerange:
                     tags.append(range_tag.beforerange)
-                    del self.range_tag_map[child.coord]
-                tags.append(child.to_tag())
+                tags.append(child.to_tpl())
                 if range_tag and range_tag.afterrange:
                     tags.append(range_tag.afterrange)
-            if self is self.root:
-                row_tag = "{%% row '%s' %%}" % self.rkey
-                tags.append(row_tag)
-            range_tag = '\n'.join(tags)
+            range_tpl = '\n'.join(tags)
         else:
-            range_tag = range_to_tag(self)
-        return range_tag
+            range_tpl = range_to_tpl(self)
+        return range_tpl
 
     def get_pos(self, wtsheet, pos_parent=None):
         pos_parent = self.pos_cls(wtsheet, self, pos_parent)
@@ -190,11 +223,11 @@ class XlRange(CellRange):
             p = child.get_pos(wtsheet, pos_parent)
         return pos_parent
 
-def range_to_tag(xlrange):
-    if xlrange.depth == 1:
-        rkey = xlrange.root.rkey
-    else:
-        rkey = xlrange.rkey
+    def get_range(self, range_name):
+        return self.range_map.get(range_name)
+
+def range_to_tpl(xlrange):
+    rkey = xlrange.rkey
     tags = []
     for rowx in range(xlrange.min_rowx, xlrange.max_rowx + 1):
         row_tag = "{%% row '%s' %%}" % rkey
@@ -221,7 +254,7 @@ class SheetRange(XlRange):
         self._node_map = {}
         self._cell_map = {}
         self._cell_tag_map = {}
-        self._range_tag_map = {}
+        self._range_map = {}
 
     def add_cell(self, cell):
         rowx = cell.rowx
@@ -235,8 +268,10 @@ class SheetRange(XlRange):
     def add_range(self, range_str, range_tag):
         new_range = VertRange(range_str, index_base=self.index_base)
         self.add_child(new_range)
+        key = new_range.name or new_range.coord
+        self.range_map[key] = new_range
         if range_tag:
-            self._range_tag_map[new_range.coord] = RangeTag(range_tag)
+            new_range.range_tag = RangeTag(range_tag)
 
     def parse_tag(self, lines, rowx, colx):
         lines = lines.split(';;')
@@ -257,6 +292,23 @@ class SheetRange(XlRange):
                     pass
                     #print(rowx, colx, 'no tag')
                     #print(line)
+
+    def get_root(self, root_name):
+        root = self.get_range(root_name)
+        return root or self
+
+    def to_tpl(self, root_name='main'):
+        root = self.get_root(root_name)
+        row_tag = "\n{%% row '%s' %%}" % root.rkey
+        return XlRange.to_tpl(root) + row_tag
+
+    def get_pos(self, wtsheet, root_name='main', nocache=False):
+        root = self.get_root(root_name)
+        pos_parent = self.pos_cls(wtsheet, root, nocache)
+        for child in root._children_split:
+            p = child.get_pos(wtsheet, pos_parent)
+        return pos_parent
+
 
 class HorizRange(XlRange):
     pos_cls = HRangePos
@@ -280,3 +332,14 @@ class RangeTag():
         self.afterrange = ''
         if range_tag:
             self.__dict__.update(range_tag)
+
+    def __str__(self):
+        return self.beforerange + self.afterrange
+
+    def __repr__(self):
+        return self.beforerange + self.afterrange
+
+    def merge(self, other):
+        if type(other) is RangeTag:
+            self.beforerange = other.beforerange + self.beforerange
+            self.afterrange = other.afterrange + self.afterrange

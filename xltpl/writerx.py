@@ -18,9 +18,10 @@ class SheetWriter(SheetBase):
 
 class BookWriter(BookBase):
 
-    def __init__(self, fname, debug=False):
+    def __init__(self, fname, debug=False, nocache=False):
         self.debug = debug
         self.load(fname)
+        self.nocache = nocache
 
     def load(self, fname):
         BookBase.load(self, fname)
@@ -37,7 +38,7 @@ class BookWriter(BookBase):
                 print('ranges split')
                 sheet_range.print_split()
             sheet_range.rich_handler = rich_handlerx
-            tpl_source = sheet_range.to_tag()
+            tpl_source = sheet_range.to_tpl()
             if self.debug:
                 print('template source')
                 print(tpl_source)
@@ -91,7 +92,7 @@ class BookWriter(BookBase):
     def render_sheet(self, payload, sheet_name, idx):
         sheet_range, jinja_tpl, rdsheet = self.sheet_range_list[idx]
         sheet_writer = SheetWriter(self, rdsheet, sheet_name)
-        self.jinja_env.sheet_pos = sheet_range.get_pos(sheet_writer)
+        self.jinja_env.sheet_pos = sheet_range.get_pos(sheet_writer, nocache=self.nocache)
         if self.debug:
             print("range positions")
             self.jinja_env.sheet_pos.print()

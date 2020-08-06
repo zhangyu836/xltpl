@@ -37,11 +37,13 @@ class Pos():
 class RangePos(Pos):
 
     pos_map = TreeProperty('pos_map')
+    nocache = TreeProperty('nocache')
 
     def __init__(self, wtsheet, xlrange, parent=None):
         Pos.__init__(self, xlrange.min_rowx, xlrange.min_colx)
         self.wtsheet = wtsheet
         self.xlrange = xlrange
+        self.cells = {}
         self._children = []
         if parent:
             parent.add_child(self)
@@ -50,8 +52,8 @@ class RangePos(Pos):
         self.pos_map[xlrange.rkey] = self
 
     def __str__(self):
-        fmt = '%s -> %s'
-        return fmt % (self.__class__.__name__, self.xlrange.rkey)
+        fmt = '%s -> %s -> %s'
+        return fmt % (self.__class__.__name__, self.xlrange.rkey, self.depth)
 
     @property
     def depth(self):
@@ -82,13 +84,15 @@ class RangePos(Pos):
 
 class SheetPos(RangePos):
 
-    def __init__(self, wtsheet, xlrange, parent):
-        RangePos.__init__(self, wtsheet, xlrange, parent)
+    def __init__(self, wtsheet, xlrange, nocache=False):
+        RangePos.__init__(self, wtsheet, xlrange, None)
+        self.set_mins(xlrange.index_base, xlrange.index_base)
         self.current_pos = self
         self.current_rkey = self.xlrange.rkey
         self.last_pos = None
         self.last_rkey = None
         self.parent = self
+        self._nocache = nocache
 
     def enter(self):
         pass
@@ -156,13 +160,13 @@ class HRangePos(RangePos):
         #print(self, self.parent, 'hrange enter')
         #print(self.parent.max_rowx + 1, self.parent.min_colx, )
         self.set_mins(self.parent.max_rowx + 1, self.parent.min_colx)
-        self.cells = {}
+        self.cells.clear()
 
     def reenter(self):
         #print('reenter', self.parent.max_rowx + 1, self.parent.min_colx)
         self.parent.min_rowx = self.parent.max_rowx + 1
         self.set_mins(self.parent.max_rowx + 1, self.parent.min_colx)
-        self.cells = {}
+        self.cells.clear()
 
     def exit(self):
         self.parent.colx = self.colx
@@ -178,17 +182,23 @@ class HRangePos(RangePos):
         self.align_children()
 
     def align_children(self):
-        if len(self._children) == 1:
-            child = self._children[0]
-            self.cells.update(child.cells)
-            #print(child.min_rowx, child.rowx, self.min_rowx, self.max_rowx)
+        if self.nocache:
             return
         for child in self._children:
-            aligned = align(child.min_rowx, child.rowx, self.min_rowx, self.max_rowx)
-            child.align(aligned)
+            if not child.cells:
+                continue
+            try:
+                aligned = align(child.min_rowx, child.max_rowx, self.min_rowx, self.max_rowx)
+                child.align(aligned)
+            except Exception as e:
+                print(e)
+                print(child.cells)
             self.cells.update(child.cells)
+            child.cells.clear()
 
     def write_cells(self):
+        if not self.cells:
+            return
         min_rowx, min_colx = min(self.cells)
         max_rowx, max_colx = max(self.cells)
 
@@ -197,7 +207,6 @@ class HRangePos(RangePos):
                 cell = self.cells.get((wtrowx, wtcolx))
                 if cell:
                     cell.write_cell(self.wtsheet)
-                    #print(cell, cell.rdrowx, cell.rdcolx, cell.wtrowx, cell.wtcolx, 'write cell')
                 else:
                     pass
                     #print(wtrowx, wtcolx, 'no cell')
@@ -208,14 +217,14 @@ class VRangePos(RangePos):
     def enter(self):
         #print(self, self.parent, 'vrange enter')
         self.set_mins(self.parent.min_rowx, self.parent.colx + 1)
-        self.cells = {}
+        self.cells.clear()
 
     def reenter(self):
         #print(self, self.parent, 'vrange reenter')
         #print(self.parent.min_rowx, self.parent.max_rowx, 'vrange reenter')
         self.parent.min_rowx = self.parent.max_rowx + 1
         self.set_mins(self.parent.max_rowx + 1, self.parent.min_colx)
-        self.cells = {}
+        self.cells.clear()
 
 
     def exit(self):
@@ -227,6 +236,7 @@ class VRangePos(RangePos):
         self.parent.rowx = self.max_rowx
         self.parent.max_rowx = max(self.max_rowx, self.parent.max_rowx)
         self.merge_children()
+        self.min_rowx = self.parent.min_rowx
 
     def child_reenter(self):
         self.merge_children()
@@ -234,12 +244,15 @@ class VRangePos(RangePos):
     def merge_children(self):
         for child in self._children:
             self.cells.update(child.cells)
+            child.cells.clear()
 
     def write_cell(self, rdrowx, rdcolx, value, cty):
         wtrowx, wtcolx = self.next_cell()
         #print('write cell', rdrowx, rdcolx, wtrowx, wtcolx, value, cty)
-        #self.wtsheet.cell(rdrowx, rdcolx, wtrowx, wtcolx, value, cty)
-        self.cells[(wtrowx, wtcolx)] = CachedCell(rdrowx, rdcolx, wtrowx, wtcolx, value, cty)
+        if self.nocache:
+            self.wtsheet.cell(rdrowx, rdcolx, wtrowx, wtcolx, value, cty)
+        else:
+            self.cells[(wtrowx, wtcolx)] = CachedCell(rdrowx, rdcolx, wtrowx, wtcolx, value, cty)
 
     def align(self, aligned):
         if not aligned:
