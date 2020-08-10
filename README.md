@@ -1,20 +1,20 @@
 
 # xltpl
-使用 xls/x 文件作为模板来生成 xls/x 文件。  
-xltpl 是 [xlstpl](https://github.com/zhangyu836/python-xls-template/) 和 [xlsxtpl](https://github.com/zhangyu836/python-xlsx-template/) 合体。 
+A python module to generate xls/x files from a xls/x template.
 
-## 实现方法
 
-xltpl.writer 使用 xlrd 来读取 xls 文件，使用 xlwt 来写入 xls 文件。  
-xltpl.wirterx 使用 openpyxl 来读写 xlsx 文件。  
-xltpl 读取 xls/x 文件时，会为每个工作表创建一棵树。  
-然后，它将树转换为带有自定义 tag 的 jinja2 模板。  
-渲染模板时，自定义 tag 所对应的 jinja2 扩展会调用相应的树节点来写入 xls/x 文件。  
+## How it works
 
-### 
+xltpl.writer uses xlrd to read xls files, and uses xlwt to write xls files.  
+xltpl.writerx uses openpyxl to read and write xlsx files.  
+When xltpl reads a xls/x file, it creates a tree for each worksheet.  
+Then, it translates the tree to a jinja2 template with custom tags.  
+When the template is rendered, jinja2 extensions of cumtom tags call corresponding tree nodes to write the xls/x file.  
 
-xltpl 使用 jinja2 作为模板引擎，遵循 [jinja2 模板的语法](http://docs.jinkan.org/docs/jinja2/templates.html)。  
-每个工作表都会被转换为一个带有自定义 tag 的 jinja2 模板。  
+
+xltpl uses jinja2 as its template engine, follows the [syntax of jinja2 template](https://jinja.palletsprojects.com/).  
+
+Each worksheet is translated to a jinja2 template with custom tags.  
 
 ```jinja2
 
@@ -59,28 +59,33 @@ xltpl 使用 jinja2 作为模板引擎，遵循 [jinja2 模板的语法](http://
 
 ```
 
-xltpl 加了 4 个自定义 tag：row、cell、sec 和 xv。  
-row、cell、sec 在内部使用，用于处理行、单元格和 rich text。  
-xv 用于定义一个变量。一个单元格中只包含 xv 定义的变量时，该单元格会被设置为变量求值所得到的类型。  
+xltpl added 4 custom tags: row, cell, sec, and xv.  
+row, cell, sec are used internally, used for row, cell and rich text.  
+xv is used to define a variable.   
+When a cell contains only a xv tag, this cell will be set to the type of the object returned from the variable evaluation.  
+For example, if a cell contains only {%xv amt %}, and amt is a number, then this cell will be set to Number type, displaying with the style set on the cell.  
+If there is another tag, it is equivalent to {{amt}}, will be converted to a string.  
 
 
 
-## 安装
+## Installtion
 
 ```shell
 pip install xltpl
 ```
 
-## 使用
+## How to use
 
-*   要使用 xltpl，需要了解 [jinja2 模板的语法](http://docs.jinkan.org/docs/jinja2/templates.html)。  
-*   选择一个 xls/x 文件作为模板。  
-*   在单元格中插入变量： 
+*   To use xltpl, you need to be familiar with the [syntax of jinja2 template](https://jinja.palletsprojects.com/).
+*   Get a pre-written xls/x file as the template.
+*   Insert variables in the cells, such as : 
+
 ```jinja2
 {{name}}
-```  
-*   在单元格的批注中插入控制语句（使用 beforerow、beforecell 和 aftercell 指定其位置）：  
-(**v0.4**) 可以使用 cell{{A1}}beforerow{% for item in items %}aftercell{% endfor %}  的形式来指定它们。
+```
+  
+*   Insert control statements in the notes(comments) of cells, uses beforerow, beforecell or aftercell to seperate them :  
+(**v0.4**) You can use 'cell{{A1}}beforerow{% for item in items %}aftercell{% endfor %}'  to specify them.
 
 ```jinja2
 beforerow{% for item in items %}
@@ -89,7 +94,7 @@ beforerow{% for item in items %}
 beforerow{% endfor %}
 ```
 
-*   (**v0.4**) 在批注中使用 range 来指定一些区域，使用 ';;' 分隔它们：
+*   (**v0.4**) Use 'range' to specify some regions, using ';;' to seperate them:
 
 ```jinja2
 range{{D3:E3}}beforerange{% for mac in item[1] %}afterrange{% endfor %};;
@@ -97,7 +102,7 @@ range{{C3:E3}}beforerange{% for item in row[1] %}afterrange{% endfor %};;
 range{{A2:F4}}beforerange{% for row in rows %}afterrange{% endfor %}
 ```
 
-*   运行代码
+*   Run the code
 ```python
 from xltpl.writer import BookWriter
 writer = BookWriter('example.xls')
@@ -109,24 +114,23 @@ writer.render_book(payloads)
 writer.save('result.xls')
 ```
 
+See [examples](https://github.com/zhangyu836/python-xlsx-template/tree/master/examples).
 
-[这里](https://github.com/zhangyu836/python-xls-xlsx-template/tree/master/examples)提供了示例。
+## Notes
 
-## 说明
+### Rich text
 
-### rich text
-
-openpyxl 读取 rich text 会将它转换为字符串，之后丢弃所读取的 rich text。   
-[这里的 openpyxl](https://bitbucket.org/zhangyu836/openpyxl/) ([2.6](https://bitbucket.org/zhangyu836/openpyxl/src/2.6/)) 会保留 rich text 并支持 rich text 写入。
-
+Openpyxl does not preserve the rich text it read.  
+A temporary workaround for rich text is provided in [this repo](https://bitbucket.org/zhangyu836/openpyxl/) ([2.6](https://bitbucket.org/zhangyu836/openpyxl/src/2.6/)).  
+For now, xltpl uses this repo to support rich text reading and writing.
 
 ### xlrd
 
-xlrd 不会读入打印设置。  
-如果需要一致的打印设置，可以使用[这里的 xlrd](https://github.com/zhangyu836/xlrd)。 
+xlrd does not extract print settings.   
+[This repo](https://github.com/zhangyu836/xlrd) does. 
 
 ### xlwt
   
-xlwt 总是将默认字体设置为 'Arial'。  
-Excel 基于默认字体来设置单元格宽度。   
-如果需要一致的单元格宽度，可以使用[这里的 xlwt](https://github.com/zhangyu836/xlwt)。  
+xlwt always sets the default font to 'Arial'.  
+Excel measures column width units based on the default font.   
+[This repo](https://github.com/zhangyu836/xlwt) does not.  

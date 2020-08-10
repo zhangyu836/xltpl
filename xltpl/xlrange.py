@@ -340,6 +340,6 @@ class RangeTag():
         return self.beforerange + self.afterrange
 
     def merge(self, other):
-        if type(other) is RangeTag:
+        if isinstance(other, RangeTag):
             self.beforerange = other.beforerange + self.beforerange
             self.afterrange = other.afterrange + self.afterrange
