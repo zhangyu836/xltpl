@@ -47,7 +47,6 @@ class SheetWriterBase():
         self.copy_foot()
 
 
-
 class SheetWriter(SheetWriterBase, SheetBase):
 
     def __init__(self, bookwriter, rdsheet, sheet_name):
@@ -126,7 +125,7 @@ class BookWriter(BookWriterBase, BookBase):
     def save(self, fname):
         if self.wtbook is not None:
             for wtsheet in self.wtsheet_map.values():
-                wtsheet.set_mc_ranges()
+                wtsheet.merge_finish()
             stream = open(fname, 'wb')
             self.wtbook.save(stream)
             stream.close()
@@ -148,7 +147,7 @@ class BookWriterx(BookWriterBase, BookBasex):
 
     def save(self, fname):
         for wtsheet in self.wtsheet_map.values():
-            wtsheet.set_mc_ranges()
+            wtsheet.merge_finish()
         self.workbook.save(fname)
         self.wtsheet_map = {}
         for sheet in self.workbook.worksheets:

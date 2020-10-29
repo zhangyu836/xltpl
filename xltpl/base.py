@@ -6,6 +6,7 @@ import six
 import datetime
 from decimal import Decimal
 from openpyxl.utils.datetime import to_excel
+from .xlnode import Empty
 
 TIME_TYPES = (datetime.datetime, datetime.date, datetime.time, datetime.timedelta)
 NUMERIC_TYPES = (int, float, Decimal)
@@ -205,6 +206,8 @@ class SheetBase():
             return xlrd.sheet.Cell(xlrd.XL_CELL_TEXT, '', 0)
 
     def _cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value=None, cty=None):
+        if value is Empty:
+            return
         cell = self._get_cell(rdrowx, rdcolx)
         if value is None:
             value = cell.value
@@ -293,7 +296,7 @@ class SheetBase():
         self.merge_mcell(rdrowx, rdcolx, wtrowx, wtcolx, wt_top)
         self._mcell(rdrowx, rdcolx, wtrowx, wtcolx)
 
-    def set_mc_ranges(self):
+    def merge_finish(self):
         for key, crange in self.wtsheet.mc_ranges.items():
             self.wtsheet.merged_ranges.append(crange)
 

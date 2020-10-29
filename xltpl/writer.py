@@ -92,7 +92,7 @@ class BookWriter(BookBase):
             print("range positions")
             self.jinja_env.sheet_pos.print()
         rv = jinja_tpl.render(payload)
-        sheet_writer.set_mc_ranges()
+        sheet_writer.merge_finish()
 
     def render_book(self, payloads):
         self.create_workbook()

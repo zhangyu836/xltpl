@@ -6,6 +6,8 @@ from openpyxl.cell.text import InlineFont
 from openpyxl.cell.cell import Cell
 from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
 from openpyxl.utils import get_column_letter
+from .merger import Merger
+from .xlnode import Empty
 
 class SheetBase():
 
@@ -14,14 +16,13 @@ class SheetBase():
         self.rdsheet = rdsheet
         self.wtsheet = self.workbook.create_sheet(title=sheet_name)
         self.copy_sheet_settings()
-        self.wtsheet.mc_ranges = {}
+        self.merger = Merger(self.rdsheet, self.wtsheet)
         self.wtrows = set()
         self.wtcols = set()
 
     def copy_sheet_settings(self):
         self.wtsheet.sheet_format = copy.copy(self.rdsheet.sheet_format)
         self.wtsheet.sheet_properties = copy.copy(self.rdsheet.sheet_properties)
-        #self.wtsheet.merged_cells = MultiCellRange()
         # copy print settings
         self.wtsheet.page_setup = copy.copy(self.rdsheet.page_setup)
         self.wtsheet.print_options = copy.copy(self.rdsheet.print_options)
@@ -31,6 +32,7 @@ class SheetBase():
         self.wtsheet.page_margins = copy.copy(self.rdsheet.page_margins)
         self.wtsheet.protection = copy.copy(self.rdsheet.protection)
         self.wtsheet.HeaderFooter = copy.copy(self.rdsheet.HeaderFooter)
+        self.wtsheet.views = copy.copy(self.rdsheet.views)
 
     def copy_row_dimension(self, rdrowx, wtrowx):
         if wtrowx in self.wtrows:
@@ -68,6 +70,8 @@ class SheetBase():
             return Cell(self, row=rdrowx, column=rdcolx)
 
     def _cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value=None, data_type=None):
+        if value is Empty:
+            return
         source_cell = self._get_cell(rdrowx, rdcolx)
         target_cell = self.wtsheet.cell(column=wtcolx, row=wtrowx)
         if value is None:
@@ -92,18 +96,7 @@ class SheetBase():
         self._cell(rdrowx, rdcolx, wtrowx, wtcolx, value, data_type)
 
     def merge_cell(self, rdrowx, rdcolx, wtrowx, wtcolx):
-        rdcoords2d = (rdrowx, rdcolx)
-        if rdcoords2d in self.rdsheet.mc_top_left_map:
-            if self.wtsheet.mc_ranges.get(rdcoords2d):
-                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(rdcoords2d)
-                cr = CellRange(min_row=rlo, max_row=rhi, min_col=clo, max_col=chi)
-                self.wtsheet.merged_cells.add(cr)
-            self.wtsheet.mc_ranges[rdcoords2d] = (wtrowx, wtrowx, wtcolx, wtcolx)
-        else:
-            mc_top_left = self.rdsheet.mc_already_set.get(rdcoords2d)
-            if mc_top_left:
-                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(mc_top_left)
-                self.wtsheet.mc_ranges[mc_top_left] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
+        self.merger.merge_cell(rdrowx, rdcolx, wtrowx, wtcolx)
 
     def _mcell(self, rdrowx, rdcolx, wtrowx, wtcolx):
         source_cell = self._get_cell(rdrowx, rdcolx)
@@ -112,24 +105,7 @@ class SheetBase():
             target_cell._style = copy.copy(source_cell._style)
 
     def merge_mcell(self, rdrowx, rdcolx, wtrowx, wtcolx, wt_top):
-        rdcoords2d = (rdrowx, rdcolx)
-        if rdcoords2d in self.rdsheet.mc_top_left_map:
-            rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(rdcoords2d)
-            self.wtsheet.mc_ranges[rdcoords2d] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
-        else:
-            mc_top_left = self.rdsheet.mc_already_set.get(rdcoords2d)
-            if mc_top_left:
-                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(mc_top_left)
-                self.wtsheet.mc_ranges[mc_top_left] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
-            else:
-                key = (wt_top, rdcoords2d)
-                singel_cell_cr = self.wtsheet.mc_ranges.get(key)
-                if singel_cell_cr:
-                    rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(key)
-                else:
-                    rlo, rhi, clo, chi = wt_top, wtrowx, wtcolx, wtcolx
-                self.wtsheet.mc_ranges[key] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
-
+        self.merger.merge_mcell( rdrowx, rdcolx, wtrowx, wtcolx, wt_top)
 
     def mcell(self, rdrowx, rdcolx, wtrowx, wtcolx, wt_top):
         self.copy_row_dimension(rdrowx, wtrowx)
@@ -137,11 +113,8 @@ class SheetBase():
         self.merge_mcell(rdrowx, rdcolx, wtrowx, wtcolx, wt_top)
         self._mcell(rdrowx, rdcolx, wtrowx, wtcolx)
 
-    def set_mc_ranges(self):
-        for key,crange in self.wtsheet.mc_ranges.items():
-            rlo, rhi, clo, chi = crange
-            cr = CellRange(min_row=rlo, max_row=rhi, min_col=clo, max_col=chi)
-            self.wtsheet.merged_cells.add(cr)
+    def merge_finish(self):
+        self.merger.finish()
 
 class BookBase():
 
@@ -151,22 +124,13 @@ class BookBase():
         self.sheet_name_map = {}
         self.rdsheet_list = []
         for rdsheet in self.workbook.worksheets:
-            self.get_sheet_mc_map(rdsheet)
+            self.get_sheet_maps(rdsheet)
             self.sheet_name_map[rdsheet.title] = len(self.sheet_name_map)
             self.rdsheet_list.append(rdsheet)
             self.workbook.remove(rdsheet)
 
-    def get_sheet_mc_map(self, sheet):
-        mc_map = {}
-        mc_nfa = {}
-        for crange in sheet.merged_cells.ranges:
-            rlo, rhi, clo, chi = crange.min_row, crange.max_row, crange.min_col, crange.max_col
-            mc_map[(rlo, clo)] = (rlo, rhi, clo, chi)
-            for rowx in range(rlo, rhi + 1):
-                for colx in range(clo, chi + 1):
-                    mc_nfa[(rowx, colx)] = (rlo, clo)
-        sheet.mc_top_left_map = mc_map
-        sheet.mc_already_set = mc_nfa
+    def get_sheet_maps(self, sheet):
+        Merger.get_sheet_maps(sheet)
 
     def get_font(self, fontId):
         ifont = self.font_map.get(fontId)

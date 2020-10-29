@@ -27,9 +27,6 @@ class CellExtension(Extension):
 class SectionExtension(Extension):
     tags = set(['sec'])
 
-    def __init__(self, environment):
-        super(self.__class__, self).__init__(environment)
-
     def parse(self, parser):
         lineno = next(parser.stream).lineno
         args = [parser.parse_expression()]
@@ -47,9 +44,6 @@ class SectionExtension(Extension):
 class RowExtension(Extension):
     tags = set(['row'])
 
-    def __init__(self, environment):
-        super(self.__class__, self).__init__(environment)
-
     def parse(self, parser):
         lineno = next(parser.stream).lineno
         args = [parser.parse_expression()]
@@ -65,9 +59,6 @@ class RowExtension(Extension):
 
 class XvExtension(Extension):
     tags = set(['xv'])
-
-    def __init__(self, environment):
-        super(self.__class__, self).__init__(environment)
 
     def parse(self, parser):
         lineno = next(parser.stream).lineno

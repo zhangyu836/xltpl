@@ -88,13 +88,16 @@ class Cell(Node):
             value = self.value
         return self.html_tpl % six.text_type(value)
 
+class Empty(object):
+    pass
+
 class EmptyCell(Cell):
 
     def __init__(self, rowx, colx):
         Cell.__init__(self, rowx, colx, None, None)
 
     def process_rv(self, rv, sheet_pos):
-        self.write(None, None, sheet_pos)
+        self.write(Empty, Empty, sheet_pos)
         #sheet_pos.next_cell()
         return self.to_html()
 
