@@ -49,8 +49,8 @@ class MergeCell():
                 self.mc_ranges[mc_top_left] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
             else:
                 key = (wt_top, rdcoords2d)
-                singel_cell_cr = self.mc_ranges.get(key)
-                if singel_cell_cr:
+                single_cell_cr = self.mc_ranges.get(key)
+                if single_cell_cr:
                     rlo, rhi, clo, chi = self.mc_ranges.get(key)
                 else:
                     rlo, rhi, clo, chi = wt_top, wtrowx, wtcolx, wtcolx

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import copy
+from .patchx import *
 from openpyxl import load_workbook
 from openpyxl.cell.text import InlineFont
 from openpyxl.cell.cell import Cell
@@ -33,6 +34,7 @@ class SheetBase():
         self.wtsheet.protection = copy.copy(self.rdsheet.protection)
         self.wtsheet.HeaderFooter = copy.copy(self.rdsheet.HeaderFooter)
         self.wtsheet.views = copy.copy(self.rdsheet.views)
+        self.wtsheet._images = copy.copy(self.rdsheet._images)
 
     def copy_row_dimension(self, rdrowx, wtrowx):
         if wtrowx in self.wtrows:
