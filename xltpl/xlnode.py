@@ -39,6 +39,9 @@ class Node(object):
         self.xv = xv
         return six.text_type(xv)
 
+    def get_image_key(self, image_key):
+        return self.parent.get_image_key(image_key)
+
 
 class Row(Node):
     tag_tpl = "{%% row '%s' %%}\n%s"#{%% endrow %%}
@@ -87,6 +90,9 @@ class Cell(Node):
         else:
             value = self.value
         return self.html_tpl % six.text_type(value)
+
+    def get_image_key(self, image_key):
+        return self.rowx, self.colx, image_key
 
 class Empty(object):
     pass

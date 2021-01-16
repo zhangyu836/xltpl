@@ -82,6 +82,9 @@ class RangePos(Pos):
         for child in self._children:
             child.print()
 
+    def set_image_ref(self, image_ref, image_key):
+        self.wtsheet.merger.set_image_ref(image_ref, (self.rowx,self.colx+1,image_key))
+
 class SheetPos(RangePos):
 
     def __init__(self, wtsheet, xlrange, nocache=False):

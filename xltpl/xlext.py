@@ -73,3 +73,24 @@ class XvExtension(Extension):
         #rv = caller()
         rv = node.process_xv(xv)
         return rv
+
+class ImageExtension(Extension):
+    tags = set(['img'])
+
+    def parse(self, parser):
+        lineno = next(parser.stream).lineno
+        args = [parser.parse_expression()]
+        if parser.stream.skip_if('comma'):
+            args.append(parser.parse_expression())
+        else:
+            args.append(nodes.Const(0))
+        body = []
+        return nodes.CallBlock(self.call_method('_seg', args),
+                               [], [], body).set_lineno(lineno)
+
+    def _seg(self, image_ref, image_key, caller):
+        current_pos = self.environment.sheet_pos.current_pos
+        node = self.environment.sheet_pos.current_node
+        image_key = node.get_image_key(image_key)
+        current_pos.set_image_ref(image_ref, image_key)
+        return ''

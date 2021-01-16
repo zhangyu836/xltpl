@@ -8,7 +8,7 @@ from .utils import Env
 from .utils import tag_test, xv_test
 from .xlnode import Row, Cell, EmptyCell, RichCell, TagCell, XvCell, RichTagCell
 from .xlrange import SheetRange
-from .xlext import CellExtension, RowExtension, SectionExtension, XvExtension
+from .xlext import CellExtension, RowExtension, SectionExtension, XvExtension, ImageExtension
 from .ynext import YnExtension
 from .richtexthandler import rich_handlerx
 
@@ -47,7 +47,7 @@ class BookWriter(BookBase):
 
     def prepare_env(self):
         self.jinja_env = Env(extensions=[CellExtension, RowExtension, SectionExtension,
-                                         YnExtension, XvExtension])
+                                         YnExtension, XvExtension, ImageExtension])
         self.jinja_env.xlsx = True
 
     def get_sheet_range(self, sheet):
