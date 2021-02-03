@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
-from .utils import TreeProperty
+from .misc import TreeProperty
 
 class Pos():
 
@@ -58,19 +58,15 @@ class RangePos(Pos):
     @property
     def depth(self):
         if not hasattr(self, '_depth'):
-            if not hasattr(self, 'parent') or self.parent is self:
+            if not hasattr(self, '_parent') or self._parent is self:
                 self._depth =  0
             else:
-                self._depth = self.parent.depth + 1
+                self._depth = self._parent.depth + 1
         return self._depth
 
     def add_child(self, child):
-        child.parent = self
+        child._parent = self
         self._children.append(child)
-
-    def get_node(self, key):
-        self.current_node = self.xlrange.node_map.get(key)
-        return self.current_node
 
     def write_cell(self, rdrowx, rdcolx, value, cty):
         wtrowx, wtcolx = self.next_cell()
@@ -83,19 +79,21 @@ class RangePos(Pos):
             child.print()
 
     def set_image_ref(self, image_ref, image_key):
-        self.wtsheet.merger.set_image_ref(image_ref, (self.rowx,self.colx+1,image_key))
+        if hasattr(self.wtsheet, 'merger'):
+            self.wtsheet.merger.set_image_ref(image_ref, (self.rowx,self.colx+1,image_key))
 
 class SheetPos(RangePos):
 
     def __init__(self, wtsheet, xlrange, nocache=False):
         RangePos.__init__(self, wtsheet, xlrange, None)
         self.set_mins(xlrange.index_base, xlrange.index_base)
-        self.current_pos = self
-        self.current_rkey = self.xlrange.rkey
-        self.last_pos = None
-        self.last_rkey = None
-        self.parent = self
+        self.current_node = self
+        self.current_key = ''
+        self.last_node = None
+        self.last_key = None
+        self._parent = self
         self._nocache = nocache
+        self.node_map = xlrange.node_map
 
     def enter(self):
         pass
@@ -109,27 +107,27 @@ class SheetPos(RangePos):
         if pre.depth > next.depth:
             for i in range(next.depth, pre.depth):
                 pre.exit()
-                #print(pre, 'pre up', pre.parent)
-                pre = pre.parent
+                #print(pre, 'pre up', pre._parent)
+                pre = pre._parent
 
         elif pre.depth < next.depth:
             for i in range(pre.depth, next.depth):
                 next_branch.insert(0, next)
-                #print(next, 'next up', next.parent)
-                next = next.parent
+                #print(next, 'next up', next._parent)
+                next = next._parent
         if pre is next:
             pass
         else:
-            pre_parent = pre.parent
-            next_parent = next.parent
+            pre_parent = pre._parent
+            next_parent = next._parent
             while pre_parent != next_parent:
                 #print(pre, next, 'up together')
                 pre.exit()
                 pre = pre_parent
-                pre_parent = pre.parent
+                pre_parent = pre._parent
                 next_branch.insert(0, next)
                 next = next_parent
-                next_parent = next.parent
+                next_parent = next._parent
             pre.exit()
             if pre_parent._children.index(pre) > pre_parent._children.index(next):
                 pre_parent.child_reenter()
@@ -139,43 +137,45 @@ class SheetPos(RangePos):
 
         for next in next_branch:
             next.enter()
-
-    def get_pos(self, rkey):
-        if rkey == self.current_rkey:
-            return self.current_pos
-        else:
-            self.last_rkey = self.current_rkey
-            self.last_pos = self.current_pos
-            self.current_pos = self.pos_map.get(rkey)
-            self.current_rkey = rkey
-            self.find_lca(self.last_pos, self.current_pos)
+			
+    def get_pos(self, key):
+        self.current_pos = self.pos_map.get(key)
         return self.current_pos
 
-    def process_row(self, key, rv):
-        current = self.get_pos(key)
-        current.next_row()
-        return 'row ' + key
+    def get_crange(self, key):
+        self.current_range = self.node_map.get(key)
+        return self.current_range
 
+    def get_node(self, key):
+        if key == self.current_key:
+            return self.current_node
+        else:
+            self.last_key = self.current_key
+            self.last_node = self.current_node
+            self.current_node = self.node_map.get(key)
+            self.current_key = key
+            self.find_lca(self.last_node, self.current_node)
+        return self.current_node
 
 class HRangePos(RangePos):
 
     def enter(self):
-        #print(self, self.parent, 'hrange enter')
-        #print(self.parent.max_rowx + 1, self.parent.min_colx, )
-        self.set_mins(self.parent.max_rowx + 1, self.parent.min_colx)
+        #print(self, self._parent, 'hrange enter')
+        #print(self._parent.max_rowx + 1, self._parent.min_colx, )
+        self.set_mins(self._parent.max_rowx + 1, self._parent.min_colx)
         self.cells.clear()
 
     def reenter(self):
-        #print('reenter', self.parent.max_rowx + 1, self.parent.min_colx)
-        self.parent.min_rowx = self.parent.max_rowx + 1
-        self.set_mins(self.parent.max_rowx + 1, self.parent.min_colx)
+        #print('reenter', self._parent.max_rowx + 1, self._parent.min_colx)
+        self._parent.min_rowx = self._parent.max_rowx + 1
+        self.set_mins(self._parent.max_rowx + 1, self._parent.min_colx)
         self.cells.clear()
 
     def exit(self):
-        self.parent.colx = self.colx
-        #self.parent.max_colx = self.max_colx
-        self.parent.rowx = self.max_rowx
-        self.parent.max_rowx = max(self.max_rowx, self.parent.max_rowx)
+        self._parent.colx = self.colx
+        #self._parent.max_colx = self.max_colx
+        self._parent.rowx = self.max_rowx
+        self._parent.max_rowx = max(self.max_rowx, self._parent.max_rowx)
 
         self.align_children()
         if self.depth == 1:
@@ -218,28 +218,28 @@ class HRangePos(RangePos):
 class VRangePos(RangePos):
 
     def enter(self):
-        #print(self, self.parent, 'vrange enter')
-        self.set_mins(self.parent.min_rowx, self.parent.colx + 1)
+        #print(self, self._parent, 'vrange enter')
+        self.set_mins(self._parent.min_rowx, self._parent.colx + 1)
         self.cells.clear()
 
     def reenter(self):
-        #print(self, self.parent, 'vrange reenter')
-        #print(self.parent.min_rowx, self.parent.max_rowx, 'vrange reenter')
-        self.parent.min_rowx = self.parent.max_rowx + 1
-        self.set_mins(self.parent.max_rowx + 1, self.parent.min_colx)
+        #print(self, self._parent, 'vrange reenter')
+        #print(self._parent.min_rowx, self._parent.max_rowx, 'vrange reenter')
+        self._parent.min_rowx = self._parent.max_rowx + 1
+        self.set_mins(self._parent.max_rowx + 1, self._parent.min_colx)
         self.cells.clear()
 
 
     def exit(self):
-        #print(self, self.parent, 'vrange exit')
+        #print(self, self._parent, 'vrange exit')
         #print(self.max_rowx, self.max_colx)
-        #print(self.parent.max_rowx, self.parent.max_colx)
-        self.parent.colx = self.colx
-        # self.parent.max_colx = self.max_colx
-        self.parent.rowx = self.max_rowx
-        self.parent.max_rowx = max(self.max_rowx, self.parent.max_rowx)
+        #print(self._parent.max_rowx, self._parent.max_colx)
+        self._parent.colx = self.colx
+        # self._parent.max_colx = self.max_colx
+        self._parent.rowx = self.max_rowx
+        self._parent.max_rowx = max(self.max_rowx, self._parent.max_rowx)
         self.merge_children()
-        self.min_rowx = self.parent.min_rowx
+        self.min_rowx = self._parent.min_rowx
 
     def child_reenter(self):
         self.merge_children()

@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
-import copy
 
 from .basex import BookBase, SheetBase
-from .utils import Env
+from .misc import Env
 from .utils import tag_test, xv_test
-from .xlnode import Row, Cell, EmptyCell, RichCell, TagCell, XvCell, RichTagCell
+from .xlnode import Row, Cell, EmptyCell, TagCell, XvCell, RichTagCell, create_cell
 from .xlrange import SheetRange
-from .xlext import CellExtension, RowExtension, SectionExtension, XvExtension, ImageExtension
+from .xlext import NodeExtension, SegmentExtension, XvExtension, ImageExtension, RangeExtension
 from .ynext import YnExtension
 from .richtexthandler import rich_handlerx
 
@@ -46,8 +45,8 @@ class BookWriter(BookBase):
             self.sheet_range_list.append((sheet_range, jinja_tpl, rdsheet))
 
     def prepare_env(self):
-        self.jinja_env = Env(extensions=[CellExtension, RowExtension, SectionExtension,
-                                         YnExtension, XvExtension, ImageExtension])
+        self.jinja_env = Env(extensions=[NodeExtension, SegmentExtension, YnExtension,
+                                         XvExtension, ImageExtension, RangeExtension])
         self.jinja_env.xlsx = True
 
     def get_sheet_range(self, sheet):
@@ -72,19 +71,14 @@ class BookWriter(BookBase):
                 rich_text = None
                 if hasattr(value, 'rich') and value.rich:
                     rich_text = value.rich
-                if data_type == 's' and xv_test(value):
-                    sheet_cell = XvCell(rowx, colx, value, data_type)
-                elif data_type == 's' and tag_test(value):
-                    font = self.get_font(source_cell._style.fontId)
-                    if not rich_text:
-                        sheet_cell = TagCell(rowx, colx, value, data_type, font)
-                    else:
-                        sheet_cell = RichTagCell(rowx, colx, value, data_type, rich_text, font)
-                else:
-                    #if not rich_text:
+                if data_type == 's':
+                    if not tag_test(value):
                         sheet_cell = Cell(rowx, colx, value, data_type)
-                    #else:
-                    #    sheet_cell = RichCell(rowx, colx, value, value, data_type)
+                    else:
+                        font = self.get_font(source_cell._style.fontId)
+                        sheet_cell = create_cell(rowx, colx, value, rich_text, data_type, font, rich_handlerx)
+                else:
+                    sheet_cell = Cell(rowx, colx, value, data_type)
                 sheet_range.add_cell(sheet_cell)
 
         return sheet_range

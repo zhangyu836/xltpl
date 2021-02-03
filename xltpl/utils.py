@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
 import re
 
 BLOCK_START_STRING = '{%'
@@ -73,47 +72,66 @@ def parse_range_tag(txt):
     return None, None
 
 
-class TreeProperty(object):
+CTEx = ' *yn | *xv | *img '
+CTBeforeRow = '^(%s-(?!%s).+?%s)+' % (BLOCK_START_STRING, CTEx, BLOCK_END_STRING)
+CTBeforeCell = '^(%s(?!%s).+?%s)+' % (BLOCK_START_STRING, CTEx, BLOCK_END_STRING)
+CTAfterCell = '(%s(?!%s).+?%s)+$' % (BLOCK_START_STRING, CTEx, BLOCK_END_STRING)
+CTExtraCell = '(%s\+(?!%s).+?%s)+$' % (BLOCK_START_STRING, CTEx, BLOCK_END_STRING)
+p_br = re.compile(CTBeforeRow)
+p_bc = re.compile(CTBeforeCell)
+p_ac = re.compile(CTAfterCell)
+p_ex = re.compile(CTExtraCell)
 
-    def __init__(self, name):
-        self.name = name
-        self._name = '_' + name
+from .misc import CellTag
+def find_tag(pattern, string):
+    m = pattern.search(string)
+    if m:
+        st, end = m.span()
+        tag = string[st:end]
+        if st == 0:
+            string = string[end:]
+        else:
+            string = string[:st]
+        return string, tag, end-st
+    return string, '', 0
 
-    def __set__(self, instance, value):
-        instance.__dict__[self._name] = value
+def find_cell_tag(s):
+    head = 0
+    tail = 0
+    cell_tag = CellTag()
+    s, tag, l = find_tag(p_br, s)
+    cell_tag.beforerow = tag
+    head += l
+    s, tag, l = find_tag(p_bc, s)
+    cell_tag.beforecell = tag
+    head += l
+    s, tag, l = find_tag(p_ex, s)
+    cell_tag.extracell = tag
+    tail += l
+    s, tag, l = find_tag(p_ac, s)
+    cell_tag.aftercell = tag
+    tail += l
+    if head > 0 or tail >0:
+        return s, cell_tag, head, tail
+    else:
+        return s, None, 0, 0
 
-    def __get__(self, instance, cls):
-        if not hasattr(instance, self._name):
-            instance.__dict__[self._name] = getattr(instance.parent, self.name)
-        return instance.__dict__[self._name]
+BLOCKSPLIT = '((?:%s(?:(?!%s).)+?%s)+)' % (BLOCK_START_STRING, CTEx, BLOCK_END_STRING)
+CTEx2 = ' *yn | *img '
+YNSPLIT = '(%s(?:(?=%s)).+?%s)' % (BLOCK_START_STRING, CTEx2, BLOCK_END_STRING)
+IMGTEST = '%s *img .+%s' % (BLOCK_START_STRING, BLOCK_END_STRING)
 
+def block_split(txt):
+    split_pattern = re.compile(BLOCKSPLIT)
+    parts = split_pattern.split(txt)
+    return parts
 
+def rich_split(txt):
+    split_pattern = re.compile(YNSPLIT)
+    parts = split_pattern.split(txt)
+    return parts
 
-import sys
-from jinja2 import Environment
-from jinja2.exceptions import TemplateSyntaxError
-
-class Env(Environment):
-
-    def handle_exception(self, *args, **kwargs):
-        exc_type, exc_value, tb = sys.exc_info()
-        red_fmt = '\033[31m%s\033[0m'
-        blue_fmt = '\033[34m%s\033[0m'
-        error_type = red_fmt % ('error type:  %s' % exc_type)
-        error_message = red_fmt % ('error message:  %s' % exc_value)
-        print(error_type)
-        print(error_message)
-        if exc_type is TemplateSyntaxError:
-            lineno = exc_value.lineno
-            source = kwargs['source']
-            src_lines = source.splitlines()
-            for i, line in enumerate(src_lines):
-                if i + 1 == lineno:
-                    line_str = red_fmt % ('line %d : %s' % (i + 1, line))
-                elif i + 1 in [lineno - 1, lineno + 1]:
-                    line_str = blue_fmt % ('line %d : %s' % (i + 1, line))
-                else:
-                    line_str = 'line %d : %s' % (i + 1, line)
-                print(line_str)
-        Environment.handle_exception(self, *args, **kwargs)
-
+def img_test(txt):
+    p = re.compile(IMGTEST)
+    rv = p.findall(txt)
+    return bool(rv)

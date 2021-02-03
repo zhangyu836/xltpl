@@ -4,11 +4,11 @@ from __future__ import print_function
 import six
 
 from .base import BookBase, SheetBase
-from .utils import Env
+from .misc import Env
 from .utils import tag_test, xv_test
-from .xlnode import Row, Cell, EmptyCell, RichCell, TagCell, XvCell, RichTagCell
+from .xlnode import Row, Cell, EmptyCell, TagCell, XvCell, RichTagCell, create_cell
 from .xlrange import SheetRange
-from .xlext import CellExtension, RowExtension, SectionExtension, XvExtension
+from .xlext import NodeExtension, SegmentExtension, XvExtension, ImageExtension, RangeExtension
 from .ynext import YnExtension
 from .richtexthandler import rich_handler
 
@@ -45,8 +45,8 @@ class BookWriter(BookBase):
             self.sheet_range_list.append((sheet_range, jinja_tpl, rdsheet))
 
     def prepare_env(self):
-        self.jinja_env = Env(extensions=[CellExtension, RowExtension, SectionExtension,
-                                         YnExtension, XvExtension])
+        self.jinja_env = Env(extensions=[NodeExtension, SegmentExtension, YnExtension,
+                                         XvExtension, ImageExtension, RangeExtension])
         self.jinja_env.xlsx = False
 
     def get_sheet_range(self, sheet):
@@ -68,19 +68,17 @@ class BookWriter(BookBase):
                 value = source_cell.value
                 cty = source_cell.ctype
                 rich_text = self.get_rich_text(sheet, rowx, colx)
-                if isinstance(value, six.text_type) and xv_test(value):
-                    sheet_cell = XvCell(rowx, colx, value, cty)
-                elif isinstance(value, six.text_type) and tag_test(value):
-                    font = self.get_font(sheet, rowx, colx)
-                    if not rich_text:
-                        sheet_cell = TagCell(rowx, colx, value, cty, font)
+                if isinstance(value, six.text_type):
+                    if not tag_test(value):
+                        if rich_text:
+                            sheet_cell = Cell(rowx, colx, rich_text, cty)
+                        else:
+                            sheet_cell = Cell(rowx, colx, value, cty)
                     else:
-                        sheet_cell = RichTagCell(rowx, colx, value, cty, rich_text, font)
+                        font = self.get_font(sheet, rowx, colx)
+                        sheet_cell = create_cell(rowx, colx, value, rich_text, cty, font, rich_handler)
                 else:
-                    if not rich_text:
-                        sheet_cell = Cell(rowx, colx, value, cty)
-                    else:
-                        sheet_cell = RichCell(rowx, colx, value, cty, rich_text)
+                    sheet_cell = Cell(rowx, colx, value, cty)
                 sheet_range.add_cell(sheet_cell)
         return sheet_range
 

@@ -45,10 +45,9 @@ class YnExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _yn(self, arg0, arg1, caller):
-        section = self.environment.sheet_pos.current_node
-        #rv = caller()
+        segment = self.environment.sheet_pos.current_node
         if arg1 is not None:
             arg0 = not arg0
-        rv = yn(arg0, section.font, self.environment.xlsx)
-        rv = section.addv(rv)
+        rv = yn(arg0, segment.font, self.environment.xlsx)
+        rv = segment.process_rich_rv(rv)
         return rv

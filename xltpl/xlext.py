@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
+import six
 from jinja2 import nodes
 from jinja2.ext import Extension
+from jinja2.runtime import Undefined
+from .xlnode import XvCell
 
-class CellExtension(Extension):
-    tags = set(['cell'])
+class NodeExtension(Extension):
+    tags = set(['row', 'cell', 'node', 'extra'])
 
     def __init__(self, environment):
         super(self.__class__, self).__init__(environment)
@@ -13,48 +16,28 @@ class CellExtension(Extension):
     def parse(self, parser):
         lineno = next(parser.stream).lineno
         args = [parser.parse_expression()]
-        body = parser.parse_statements(['name:endcell'], drop_needle=True)
-        return nodes.CallBlock(self.call_method('_cell', args),
-                               [], [], body).set_lineno(lineno)
-
-    def _cell(self, key, caller):
-        current_pos = self.environment.sheet_pos.current_pos
-        cell = current_pos.get_node(key)
-        rv = caller()
-        rv = cell.process_rv(rv, current_pos)
-        return rv
-
-class SectionExtension(Extension):
-    tags = set(['sec'])
-
-    def parse(self, parser):
-        lineno = next(parser.stream).lineno
-        args = [parser.parse_expression()]
-        body = parser.parse_statements(['name:endsec'], drop_needle=True)
-        return nodes.CallBlock(self.call_method('_sec', args),
-                               [], [], body).set_lineno(lineno)
-
-    def _sec(self, key, caller):
-        current_pos = self.environment.sheet_pos.current_pos
-        section = current_pos.get_node(key)
-        rv = caller()
-        rv = section.process_rv(rv, current_pos)
-        return rv
-
-class RowExtension(Extension):
-    tags = set(['row'])
-
-    def parse(self, parser):
-        lineno = next(parser.stream).lineno
-        args = [parser.parse_expression()]
-        #body = parser.parse_statements(['name:endrow'], drop_needle=True)
         body = []
-        return nodes.CallBlock(self.call_method('_row', args),
+        return nodes.CallBlock(self.call_method('_node', args),
                                [], [], body).set_lineno(lineno)
 
-    def _row(self, key, caller):
+    def _node(self, key, caller):
+        node = self.environment.sheet_pos.get_node(key)
+        return key
+
+class SegmentExtension(Extension):
+    tags = set(['seg'])
+
+    def parse(self, parser):
+        lineno = next(parser.stream).lineno
+        args = [parser.parse_expression()]
+        body = parser.parse_statements(['name:endseg'], drop_needle=True)
+        return nodes.CallBlock(self.call_method('_seg', args),
+                               [], [], body).set_lineno(lineno)
+
+    def _seg(self, key, caller):
+        segment = self.environment.sheet_pos.get_node(key)
         rv = caller()
-        rv = self.environment.sheet_pos.process_row(key, rv)
+        rv = segment.process_rv(rv)
         return rv
 
 class XvExtension(Extension):
@@ -64,14 +47,16 @@ class XvExtension(Extension):
         lineno = next(parser.stream).lineno
         args = [parser.parse_expression()]
         body = []
-        return nodes.CallBlock(self.call_method('_row', args),
+        return nodes.CallBlock(self.call_method('_xv', args),
                                [], [], body).set_lineno(lineno)
 
-    def _row(self, xv, caller):
-        current_pos = self.environment.sheet_pos.current_pos
-        node = current_pos.current_node
-        #rv = caller()
-        rv = node.process_xv(xv)
+    def _xv(self, xv, caller):
+        segment = self.environment.sheet_pos.current_node
+        if xv is None or type(xv) is Undefined:
+            xv = ''
+        if isinstance(segment._parent, XvCell):
+            segment._parent.rv = xv
+        rv = six.text_type(xv)
         return rv
 
 class ImageExtension(Extension):
@@ -85,12 +70,26 @@ class ImageExtension(Extension):
         else:
             args.append(nodes.Const(0))
         body = []
-        return nodes.CallBlock(self.call_method('_seg', args),
+        return nodes.CallBlock(self.call_method('_image', args),
                                [], [], body).set_lineno(lineno)
 
-    def _seg(self, image_ref, image_key, caller):
-        current_pos = self.environment.sheet_pos.current_pos
+    def _image(self, image_ref, image_key, caller):
         node = self.environment.sheet_pos.current_node
-        image_key = node.get_image_key(image_key)
-        current_pos.set_image_ref(image_ref, image_key)
-        return ''
+        node.set_image_ref(image_ref, image_key)
+        return 'image'
+
+class RangeExtension(Extension):
+    tags = set(['crange'])
+
+    def parse(self, parser):
+        lineno = next(parser.stream).lineno
+        args = [parser.parse_expression()]
+        body = []
+        return nodes.CallBlock(self.call_method('_range', args),
+                               [], [], body).set_lineno(lineno)
+
+    def _range(self, key, caller):
+        sheet_pos = self.environment.sheet_pos
+        cr = sheet_pos.get_crange(key)
+        cr.set_parent(sheet_pos)
+        return key
