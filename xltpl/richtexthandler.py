@@ -2,14 +2,27 @@
 
 import six
 from copy import copy
-from .utils import block_tag_test
+from .utils import block_tag_test, fix_test, tag_fix
 from openpyxl.cell.text import RichText, Text
 
 class RichTextHandler():
 
     def iter(self, rich_text, font):
-        for segment in rich_text:
-            yield segment[0],segment[1],segment
+        text_4_fix = self.text_4_fix(rich_text)
+        if fix_test(text_4_fix):
+            fixed = tag_fix(text_4_fix)
+            #print(text_4_fix)
+            #print(fixed)
+            for i, segment in enumerate(rich_text):
+                if i in fixed:
+                    text = fixed[i]
+                    if text == '':
+                        continue
+                    else:
+                        yield text,segment[1],segment
+        else:
+            for segment in rich_text:
+                yield segment[0],segment[1],segment
 
     @classmethod
     def rich_segment(self, text, font):
@@ -26,8 +39,24 @@ class RichTextHandler():
             return ''.join(x)
 
     @classmethod
+    def text_4_fix(self, rich_text):
+        text = []
+        fmt = '___%d___'
+        for i, segment in enumerate(rich_text):
+            text.append(fmt % i)
+            text.append(segment[0])
+        return ''.join(text)
+
+    @classmethod
     def rich_content(cls, value):
-        return value
+        segments = []
+        for segment in value:
+            if segment[0]:
+                segments.append(segment)
+        if segments:
+            return segments
+        else:
+            return ''
 
     @classmethod
     def mid(cls, rich_text, head, tail):
@@ -72,10 +101,23 @@ class RichTextHandlerX():
 
     @classmethod
     def iter(self, rich_text, font):
-        for segment in rich_text.r:
-            if segment.font is None and block_tag_test(segment.text):
-                segment.font = font
-            yield segment.text,segment.font,segment
+        text_4_fix = self.text_4_fix(rich_text)
+        if fix_test(text_4_fix):
+            fixed = tag_fix(text_4_fix)
+            #print(text_4_fix)
+            #print(fixed)
+            for i, segment in enumerate(rich_text.r):
+                if i in fixed:
+                    text = fixed[i]
+                    if text == '':
+                        continue
+                    else:
+                        segment_font = segment.font or font
+                        yield text, segment_font, segment
+        else:
+            for segment in rich_text.r:
+                segment_font = segment.font or font
+                yield segment.text, segment_font, segment
 
     @classmethod
     def rich_segment(cls, text, font):
@@ -86,10 +128,26 @@ class RichTextHandlerX():
         return value
 
     @classmethod
+    def text_4_fix(self, rich_text):
+        text = []
+        fmt = '___%d___'
+        for i,segment in enumerate(rich_text.r):
+            text.append(fmt % i)
+            text.append(segment.text)
+        return ''.join(text)
+
+    @classmethod
     def rich_content(cls, value):
         if type(value) is Text:
             return value.content
-        return Text(r=value).content
+        segments = []
+        for segment in value:
+            if segment.text:
+                segments.append(segment)
+        if segments:
+            return Text(r=segments).content
+        else:
+            return ''
 
     @classmethod
     def mid(cls, rich_text, head, tail):

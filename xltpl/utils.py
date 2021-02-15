@@ -135,3 +135,47 @@ def img_test(txt):
     p = re.compile(IMGTEST)
     rv = p.findall(txt)
     return bool(rv)
+
+
+FIXTEST = '({(?:___\d+___)?(?:{|%).+?(?:}|%)(?:___\d+___)?})'
+RUNSPLIT = '(___\d+___)'
+RUNSPLIT2 = '___(\d+)___'
+
+#need a better way to handle this
+def fix_test(txt):
+    split_pattern = re.compile(FIXTEST)
+    parts = split_pattern.split(txt)
+    for i, part in enumerate(parts):
+        if i % 2 == 1:
+            pattern = re.compile(RUNSPLIT)
+            rv = pattern.findall(part)
+            if rv :
+                return True
+
+def tag_fix(txt):
+    split_pattern = re.compile(FIXTEST)
+    parts = split_pattern.split(txt)
+    p = ''
+    for i, part in enumerate(parts):
+        if i % 2 == 1:
+            p += fix_step2(part)
+        else:
+            p += part
+    split_pattern2 = re.compile(RUNSPLIT2)
+    parts = split_pattern2.split(p)
+    d = {}
+    for i in range(1, len(parts), 2):
+            d[int(parts[i])] = parts[i + 1]
+    return d
+
+def fix_step2(txt):
+    split_pattern = re.compile(RUNSPLIT)
+    parts = split_pattern.split(txt)
+    p0 = ''
+    p1 = ''
+    for index,part in enumerate(parts):
+        if index % 2 == 0:
+            p0 += part
+        else:
+            p1 += part
+    return p0+p1
