@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import os
 import six
 from jinja2 import nodes
 from jinja2.ext import Extension
@@ -59,6 +60,12 @@ class XvExtension(Extension):
         rv = six.text_type(xv)
         return rv
 
+try:
+    pil = True
+    from PIL.ImageFile import ImageFile
+except:
+    pil = False
+
 class ImageExtension(Extension):
     tags = set(['img'])
 
@@ -74,7 +81,13 @@ class ImageExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _image(self, image_ref, image_key, caller):
+        if not pil:
+            return ''
         node = self.environment.sheet_pos.current_node
+        if not isinstance(image_ref, ImageFile):
+            fname = six.text_type(image_ref)
+            if not os.path.exists(fname):
+                image_ref = ''
         node.set_image_ref(image_ref, image_key)
         return 'image'
 
