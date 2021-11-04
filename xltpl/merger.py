@@ -269,6 +269,55 @@ class ImageList(Merge):
             img.finish()
         self.wtsheet._images = self.images
 
+class AutoFilter(Merge):
+
+    @classmethod
+    def get_sheet_maps(cls, rdsheet):
+        rdsheet.af = None
+        if not rdsheet.auto_filter.ref:
+            return
+        _range = CellRange(rdsheet.auto_filter.ref)
+        _nfa = {}
+        rlo, rhi, clo, chi = _range.min_row, _range.max_row, _range.min_col, _range.max_col
+        _top_left = (rlo, clo)
+        for rowx in range(rlo, rhi + 1):
+            for colx in range(clo, chi + 1):
+                _nfa[(rowx, colx)] = (rlo, clo)
+        rdsheet.af = (_top_left, _nfa)
+
+    def prepare(self):
+        if self.rdsheet.af is None:
+            return
+        self._merge_range = None
+        self._top_left,self._already_set = self.rdsheet.af
+
+    def merge_cell(self, rdrowx, rdcolx, wtrowx, wtcolx):
+        if self.rdsheet.af is None:
+            return
+        rdcoords2d = (rdrowx, rdcolx)
+        if rdcoords2d == self._top_left:
+            if not self._merge_range:
+                self._merge_range = (wtrowx, wtrowx, wtcolx, wtcolx)
+        else:
+            _top_left = self._already_set.get(rdcoords2d)
+            if _top_left and self._merge_range:
+                rlo, rhi, clo, chi = self._merge_range
+                self._merge_range = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
+
+    def merge_mcell(self, rdrowx, rdcolx, wtrowx, wtcolx, wt_top):
+        return self.merge_cell(rdrowx, rdcolx, wtrowx, wtcolx)
+
+    def finish(self):
+        if self.rdsheet.af is None:
+            return
+        if not self._merge_range:
+            return
+        rlo, rhi, clo, chi = self._merge_range
+        _range = CellRange(min_col=clo, min_row=rlo, max_col=chi, max_row=rhi)
+        self.wtsheet.auto_filter = copy(self.rdsheet.auto_filter)
+        self.wtsheet.auto_filter.ref = _range.coord
+
+
 class Merger(object):
 
     def __init__(self, rdsheet, wtsheet):
@@ -276,13 +325,15 @@ class Merger(object):
         dv = DataValidation(rdsheet, wtsheet)
         image_list = ImageList(rdsheet, wtsheet)
         self.image_list = image_list
-        self.mergers = [mc, dv, image_list]
+        af = AutoFilter(rdsheet, wtsheet)
+        self.mergers = [mc, dv, image_list, af]
 
     @classmethod
     def get_sheet_maps(cls, rdsheet):
         MergeCell.get_sheet_maps(rdsheet)
         DataValidation.get_sheet_maps(rdsheet)
         ImageList.get_sheet_maps(rdsheet)
+        AutoFilter.get_sheet_maps(rdsheet)
 
     def merge_cell(self, rdrowx, rdcolx, wtrowx, wtcolx):
         for merger in self.mergers:
