@@ -1,91 +1,30 @@
 
-# xltpl
-A python module to generate xls/x files from a xls/x template.
+# xltpl  
+使用 xls/x 文件作为模板来生成 xls/x 文件。 [English](README_EN.md)     
 
+## 实现方法
 
-## How it works
+xls/x 文件的每个工作表会被转换为一棵树。  
+树会被转换为带有自定义 tag 的 jinja2 模板。  
+渲染模板时，自定义 tag 所对应的 jinja2 扩展调用相应的树节点来写入 xls/x 文件。  
 
-xltpl.writer uses xlrd to read xls files, and uses xlwt to write xls files.  
-xltpl.writerx uses openpyxl to read and write xlsx files.  
-When xltpl reads a xls/x file, it creates a tree for each worksheet.  
-Then, it translates the tree to a jinja2 template with custom tags.  
-When the template is rendered, jinja2 extensions of cumtom tags call corresponding tree nodes to write the xls/x file.  
-
-
-xltpl uses jinja2 as its template engine, follows the [syntax of jinja2 template](https://jinja.palletsprojects.com/).  
-
-Each worksheet is translated to a jinja2 template with custom tags.  
-
-```jinja2
-
-{% row 'A1:F4, 0' %}
-{% cell '0,0' %}{% endcell %}
-{% cell '0,1' %}{% endcell %}
-{% cell '0,2' %}{% endcell %}
-{% cell '0,3' %}{% endcell %}
-{% cell '0,4' %}{% endcell %}
-{% cell '0,5' %}{% endcell %}
-{% for row in rows %}
-{% row 'A2:F2, 3' %}
-{% cell '1,0' %}{% endcell %}
-{% cell '1,1' %}{% endcell %}
-{% cell '1,2' %}{% endcell %}
-{% cell '1,3' %}{% endcell %}
-{% cell '1,4' %}{% endcell %}
-{% cell '1,5' %}{% endcell %}
-{% row 'A3:B3, 4' %}
-{% cell '2,0' %}{% sec '2,0,0' %}{{loop.index}} {% endsec %}{% endcell %}
-{% cell '2,1' %}{% sec '2,1,0' %}{{row[0]}}{% endsec %}{% endcell %}
-{% for item in row[1] %}
-{% row 'C3, 6' %}
-{% cell '2,2' %}{% sec '2,2,0' %}{{item[0]}}{% endsec %}{% endcell %}
-{% for mac in item[1] %}
-{% row 'D3:E3, 6' %}
-{% cell '2,3' %}{% sec '2,3,0' %}{{ mac }}{% endsec %}{% endcell %}
-{% cell '2,4' %}{% endcell %}
-{% endfor %}
-{% endfor %}
-{% row 'F3, 4' %}
-{% cell '2,5' %}{% endcell %}
-{% row 'A4:F4, 3' %}
-{% cell '3,0' %}{% endcell %}
-{% cell '3,1' %}{% endcell %}
-{% cell '3,2' %}{% endcell %}
-{% cell '3,3' %}{% endcell %}
-{% cell '3,4' %}{% endcell %}
-{% cell '3,5' %}{% endcell %}
-{% endfor %}
-{% row 'A1:F4, 0' %}
-
-```
-
-xltpl added 4 custom tags: row, cell, sec, and xv.  
-row, cell, sec are used internally, used for row, cell and rich text.  
-xv is used to define a variable.   
-When a cell contains only a xv tag, this cell will be set to the type of the object returned from the variable evaluation.  
-For example, if a cell contains only {%xv amt %}, and amt is a number, then this cell will be set to Number type, displaying with the style set on the cell.  
-If there is another tag, it is equivalent to {{amt}}, will be converted to a string.  
-
-
-
-## Installtion
+ 
+## 安装
 
 ```shell
 pip install xltpl
 ```
 
-## How to use
+## 使用
 
-*   To use xltpl, you need to be familiar with the [syntax of jinja2 template](https://jinja.palletsprojects.com/).
-*   Get a pre-written xls/x file as the template.
-*   Insert variables in the cells, such as : 
-
+*   要使用 xltpl，需要了解 [jinja2 模板的语法](http://docs.jinkan.org/docs/jinja2/templates.html) 。  
+*   选择一个 xls/x 文件作为模板。  
+*   在单元格中插入变量： 
 ```jinja2
 {{name}}
-```
-  
-*   Insert control statements in the notes(comments) of cells, uses beforerow, beforecell or aftercell to seperate them :  
-(**v0.4**) You can use 'cell{{A1}}beforerow{% for item in items %}aftercell{% endfor %}'  to specify them.
+```  
+*   在单元格的批注中插入控制语句（使用 beforerow、beforecell 和 aftercell 指定其位置）：  
+
 
 ```jinja2
 beforerow{% for item in items %}
@@ -94,43 +33,59 @@ beforerow{% for item in items %}
 beforerow{% endfor %}
 ```
 
-*   (**v0.4**) Use 'range' to specify some regions, using ';;' to seperate them:
+*   或在单元格中插入控制语句(**v0.9**, 见 [incell.py](https://github.com/zhangyu836/xltpl/blob/master/examples/incell.py) )：
 
 ```jinja2
-range{{D3:E3}}beforerange{% for mac in item[1] %}afterrange{% endfor %};;
-range{{C3:E3}}beforerange{% for item in row[1] %}afterrange{% endfor %};;
-range{{A2:F4}}beforerange{% for row in rows %}afterrange{% endfor %}
+{%- for row in rows %}
+{% set outer_loop = loop %}{% for row in rows %}
+Cell
+{{outer_loop.index}}{{loop.index}}
+{%+ endfor%}{%+ endfor%}
 ```
 
-*   Run the code
+
+*   运行代码
 ```python
-from xltpl.writer import BookWriter
-writer = BookWriter('example.xls')
+from xltpl.writerx import BookWriter
+writer = BookWriter('tpl.xlsx')
 person_info = {'name': u'Hello Wizard'}
 items = ['1', '1', '1', '1', '1', '1', '1', '1', ]
 person_info['items'] = items
 payloads = [person_info]
 writer.render_book(payloads)
-writer.save('result.xls')
+writer.save('result.xlsx')
 ```
 
-See [examples](https://github.com/zhangyu836/python-xlsx-template/tree/master/examples).
+## 支持的特性
+* 合并单元格 (MergedCell)   
+* 单元格非字符串值 (使用 **{% xv variable %}** 来表示变量)
+* 对于 xlsx  
+图片 (使用 **{% img variable %}**, 见 [images.py](https://github.com/zhangyu836/xltpl/blob/master/examples/images.py))  
+数据有效性(DataValidation, 见 [ranges_dv.py](https://github.com/zhangyu836/xltpl/blob/master/examples/ranges_dv.py))  
+筛选 (AutoFilter)
 
-## Notes
 
-### Rich text
+## 相关
+* [pydocxtpl](https://github.com/zhangyu836/pydocxtpl)  
+使用 docx 文件作为模板来生成 docx 文件。  
+其实现方法与 xltpl 类似。
+* [django-excel-export](https://github.com/zhangyu836/django-excel-export)  
+利用 xltpl 和 pydocxtpl 在 Django admin 后台以xls/x 和 docx 格式导出数据。  
+[演示项目](https://github.com/zhangyu836/django-excel-export-demo)  
+[在线演示](https://tranquil-tundra-83829.herokuapp.com/) (用户名: admin
+密码: admin)   
+* [nodejs 版本的 xltpl](https://github.com/zhangyu836/node-xlsx-template)
 
-Openpyxl does not preserve the rich text it read.  
-A temporary workaround for rich text is provided in [this repo](https://bitbucket.org/zhangyu836/openpyxl/) ([2.6](https://bitbucket.org/zhangyu836/openpyxl/src/2.6/)).  
-For now, xltpl uses this repo to support rich text reading and writing.
+
+## 说明
 
 ### xlrd
 
-xlrd does not extract print settings.   
-[This repo](https://github.com/zhangyu836/xlrd) does. 
+xlrd 不会读入打印设置。  
+如果需要一致的打印设置，可以使用[这里的 xlrd](https://github.com/zhangyu836/xlrd) 。 
 
 ### xlwt
   
-xlwt always sets the default font to 'Arial'.  
-Excel measures column width units based on the default font.   
-[This repo](https://github.com/zhangyu836/xlwt) does not.  
+xlwt 总是将默认字体设置为 'Arial'。  
+Excel 基于默认字体来设置单元格宽度。   
+如果需要一致的单元格宽度，可以使用[这里的 xlwt](https://github.com/zhangyu836/xlwt) 。  
