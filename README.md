@@ -75,6 +75,7 @@ writer.save('result.xlsx')
 [在线演示](https://tranquil-tundra-83829.herokuapp.com/) (用户名: admin
 密码: admin)   
 * [nodejs 版本的 xltpl](https://github.com/zhangyu836/node-xlsx-template)
+* [xltpl for java](https://github.com/zhangyu836/xltpl4java)
 
 
 ## 说明
