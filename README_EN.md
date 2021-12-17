@@ -75,6 +75,7 @@ A Django library for exporting data in xlsx, xls, docx format, utilizing xltpl a
 Password: admin)   
 
 * [xltpl for nodejs](https://github.com/zhangyu836/node-xlsx-template)
+* [xltpl for java](https://github.com/zhangyu836/xltpl4java)
 
 
 ## Notes
