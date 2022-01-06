@@ -6,11 +6,8 @@ import six
 import datetime
 from decimal import Decimal
 from openpyxl.utils.datetime import to_excel
-from .xlnode import Empty
 
-TIME_TYPES = (datetime.datetime, datetime.date, datetime.time, datetime.timedelta)
-NUMERIC_TYPES = (int, float, Decimal)
-STRING_TYPES = (six.string_types, six.text_type)
+from openpyxl.cell.cell import NUMERIC_TYPES, TIME_TYPES, STRING_TYPES
 BOOL_TYPE = bool
 
 def get_type(value):
@@ -20,29 +17,17 @@ def get_type(value):
         dt = xlrd.XL_CELL_TEXT
     elif isinstance(value, TIME_TYPES):
         dt = xlrd.XL_CELL_DATE
-        value = to_excel(value)
+        return to_excel(value), dt
     elif isinstance(value, BOOL_TYPE):
         dt = xlrd.XL_CELL_BOOLEAN
     else:
-        return '', xlrd.XL_CELL_TEXT
+        return str(value), xlrd.XL_CELL_TEXT
     return value, dt
 
-
 # adapted from xlutils.filter
-
-
 class SheetBase():
 
-    def __init__(self, bookwriter, rdsheet, wtsheet_name):
-        self.rdbook = bookwriter.rdbook
-        self.wtbook = bookwriter.wtbook
-        self.style_list = bookwriter.style_list
-        self.create_worksheet(rdsheet, wtsheet_name)
-        self.wtrows = set()
-        self.wtcols = set()
-
     def create_worksheet(self, rdsheet, wtsheet_name):
-
         # these checks should really be done by xlwt!
         if not wtsheet_name:
             raise ValueError('Empty sheet name will result in invalid Excel file!')
@@ -199,26 +184,17 @@ class SheetBase():
             wtcol.collapsed = rdcol.collapsed
             self.wtcols.add(wtcolx)
 
-    def _get_cell(self, rdrowx, rdcolx):
-        try:
-            return self.rdsheet.cell(rdrowx, rdcolx)
-        except:
-            return xlrd.sheet.Cell(xlrd.XL_CELL_TEXT, '', 0)
-
-    def _cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value=None, cty=None):
-        if value is Empty:
-            return
-        cell = self._get_cell(rdrowx, rdcolx)
+    def _cell(self, source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value=None, cty=None):
         if value is None:
-            value = cell.value
-            cty = cell.ctype
+            value = source_cell.value
+            cty = source_cell.ctype
         if cty is None:
-            value, cty = get_type(value)
+            value,cty = get_type(value)
 
         if cty == xlrd.XL_CELL_EMPTY:
             return
-        if cell.xf_index is not None:
-            style = self.style_list[cell.xf_index]
+        if source_cell.xf_index is not None:
+            style = self.style_list[source_cell.xf_index]
         else:
             style = self.style_list[0]
 
@@ -242,74 +218,13 @@ class SheetBase():
                 % (cty, value, self.rdsheet.name, rdrowx, rdcolx)
             )
 
-    def cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value=None, cty=None):
+    def cell(self, source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value=None, cty=None):
         self.copy_row_dimension(rdrowx, wtrowx)
         self.copy_col_dimension(rdcolx, wtcolx)
-        self.merge_cell(rdrowx, rdcolx, wtrowx, wtcolx)
-        self._cell(rdrowx, rdcolx, wtrowx, wtcolx, value, cty)
+        self._cell(source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value, cty)
 
-    def merge_cell(self, rdrowx, rdcolx, wtrowx, wtcolx):
-        rdcoords2d = (rdrowx, rdcolx)
-        if rdcoords2d in self.rdsheet.mc_top_left_map:
-            if self.wtsheet.mc_ranges.get(rdcoords2d):
-                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(rdcoords2d)
-                self.wtsheet.merged_ranges.append((rlo, rhi, clo, chi))
-            self.wtsheet.mc_ranges[rdcoords2d] = (wtrowx, wtrowx, wtcolx, wtcolx)
-        else:
-            mc_top_left = self.rdsheet.mc_already_set.get(rdcoords2d)
-            if mc_top_left:
-                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(mc_top_left)
-                self.wtsheet.mc_ranges[mc_top_left] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
-
-    def _mcell(self, rdrowx, rdcolx, wtrowx, wtcolx):
-        cell = self._get_cell(rdrowx, rdcolx)
-        if cell.xf_index is not None:
-            style = self.style_list[cell.xf_index]
-        else:
-            style = self.style_list[0]
-        wtrow = self.wtsheet.row(wtrowx)
-        wtrow.set_cell_text(wtcolx, '', style)
-
-    def merge_mcell(self, rdrowx, rdcolx, wtrowx, wtcolx, wt_top):
-        rdcoords2d = (rdrowx, rdcolx)
-        if rdcoords2d in self.rdsheet.mc_top_left_map:
-            rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(rdcoords2d)
-            self.wtsheet.mc_ranges[rdcoords2d] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
-        else:
-            mc_top_left = self.rdsheet.mc_already_set.get(rdcoords2d)
-            if mc_top_left:
-                rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(mc_top_left)
-                self.wtsheet.mc_ranges[mc_top_left] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
-            else:
-                key = (wt_top, rdcoords2d)
-                singel_cell_cr = self.wtsheet.mc_ranges.get(key)
-                if singel_cell_cr:
-                    rlo, rhi, clo, chi = self.wtsheet.mc_ranges.get(key)
-                else:
-                    rlo, rhi, clo, chi = wt_top, wtrowx, wtcolx, wtcolx
-                self.wtsheet.mc_ranges[key] = (rlo, max(rhi, wtrowx), clo, max(chi, wtcolx))
-
-
-    def mcell(self, rdrowx, rdcolx, wtrowx, wtcolx, wt_top):
-        self.copy_row_dimension(rdrowx, wtrowx)
-        self.copy_col_dimension(rdcolx, wtcolx)
-        self.merge_mcell(rdrowx, rdcolx, wtrowx, wtcolx, wt_top)
-        self._mcell(rdrowx, rdcolx, wtrowx, wtcolx)
-
-    def merge_finish(self):
-        for key, crange in self.wtsheet.mc_ranges.items():
-            self.wtsheet.merged_ranges.append(crange)
 
 class BookBase():
-
-    def load(self, fname):
-        self.load_rdbook(fname)
-        self.sheet_name_map = {}
-        self.rdsheet_list = []
-        for rdsheet in self.rdbook.sheets():
-            self.get_sheet_mc_map(rdsheet)
-            self.sheet_name_map[rdsheet.name] = len(self.sheet_name_map)
-            self.rdsheet_list.append(rdsheet)
 
     def load_rdbook(self, fname):
         self.rdbook = rdbook = xlrd.open_workbook(fname, formatting_info=True)
@@ -390,17 +305,6 @@ class BookBase():
             #
             self.style_list.append(wtxf)
 
-    def get_sheet_mc_map(self, sheet):
-        mc_map = {}
-        mc_nfa = {}
-        for crange in sheet.merged_cells:
-            rlo, rhi, clo, chi = crange
-            mc_map[(rlo, clo)] = crange
-            for rowx in range(rlo, rhi):
-                for colx in range(clo, chi):
-                    mc_nfa[(rowx, colx)] = (rlo, clo)
-        sheet.mc_top_left_map = mc_map
-        sheet.mc_already_set = mc_nfa
 
     def create_workbook(self):
         self.wtbook = xlwt.Workbook(style_compression=2)
@@ -467,25 +371,3 @@ class BookBase():
                 font = self._get_font(xf.font_index)
                 rich_text.insert(0, (text, font))
             return rich_text
-
-    def get_tpl_idx(self, payload):
-        idx = payload.get('tpl_idx')
-        if not idx:
-            name = payload.get('tpl_name')
-            if name:
-                idx = self.sheet_name_map[name]
-            else:
-                idx = 0
-        return idx
-
-    def get_sheet_name(self, payload, key=None):
-        name = payload.get('sheet_name')
-        if not name:
-            if key:
-                name = key
-            else:
-                name = 'XLSheet%d' % len(self.wtbook.wtsheet_names)
-        return name
-
-
-

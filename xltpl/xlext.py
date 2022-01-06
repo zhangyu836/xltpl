@@ -6,13 +6,10 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.runtime import Undefined
 from .xlnode import XvCell
+from .nodemap import node_map
 
 class NodeExtension(Extension):
     tags = set(['row', 'cell', 'node', 'extra'])
-
-    def __init__(self, environment):
-        super(self.__class__, self).__init__(environment)
-        environment.extend(sheet_pos = None)
 
     def parse(self, parser):
         lineno = next(parser.stream).lineno
@@ -22,8 +19,8 @@ class NodeExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _node(self, key, caller):
-        node = self.environment.sheet_pos.get_node(key)
-        return key
+        node = node_map.get_node(key)
+        return str(key)
 
 class SegmentExtension(Extension):
     tags = set(['seg'])
@@ -36,7 +33,7 @@ class SegmentExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _seg(self, key, caller):
-        segment = self.environment.sheet_pos.get_node(key)
+        segment = node_map.get_node(key)
         rv = caller()
         rv = segment.process_rv(rv)
         return rv
@@ -47,24 +44,22 @@ class XvExtension(Extension):
     def parse(self, parser):
         lineno = next(parser.stream).lineno
         args = [parser.parse_expression()]
+        if parser.stream.skip_if('comma'):
+            args.append(parser.parse_expression())
+        else:
+            args.append(nodes.Const(0))
         body = []
         return nodes.CallBlock(self.call_method('_xv', args),
                                [], [], body).set_lineno(lineno)
 
-    def _xv(self, xv, caller):
-        segment = self.environment.sheet_pos.current_node
+    def _xv(self, xv, key, caller):
+        if key==0:
+            return six.text_type(xv)
+        xvcell = node_map.get_node(key)
         if xv is None or type(xv) is Undefined:
             xv = ''
-        if isinstance(segment._parent, XvCell):
-            segment._parent.rv = xv
-        rv = six.text_type(xv)
-        return rv
-
-try:
-    pil = True
-    from PIL.ImageFile import ImageFile
-except:
-    pil = False
+        xvcell.rv = xv
+        return six.text_type(xv)
 
 class ImageExtension(Extension):
     tags = set(['img'])
@@ -81,28 +76,35 @@ class ImageExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _image(self, image_ref, image_key, caller):
+         return ''
+
+try:
+    pil = True
+    from PIL.ImageFile import ImageFile
+except:
+    pil = False
+
+class ImagexExtension(Extension):
+    tags = set(['img'])
+
+    def parse(self, parser):
+        lineno = next(parser.stream).lineno
+        args = [parser.parse_expression()]
+        if parser.stream.skip_if('comma'):
+            args.append(parser.parse_expression())
+        else:
+            args.append(nodes.Const(0))
+        body = []
+        return nodes.CallBlock(self.call_method('_image', args),
+                               [], [], body).set_lineno(lineno)
+
+    def _image(self, image_ref, image_key, caller):
         if not pil:
             return ''
-        node = self.environment.sheet_pos.current_node
+        node = node_map.current_node
         if not isinstance(image_ref, ImageFile):
             fname = six.text_type(image_ref)
             if not os.path.exists(fname):
                 image_ref = ''
         node.set_image_ref(image_ref, image_key)
         return 'image'
-
-class RangeExtension(Extension):
-    tags = set(['crange'])
-
-    def parse(self, parser):
-        lineno = next(parser.stream).lineno
-        args = [parser.parse_expression()]
-        body = []
-        return nodes.CallBlock(self.call_method('_range', args),
-                               [], [], body).set_lineno(lineno)
-
-    def _range(self, key, caller):
-        sheet_pos = self.environment.sheet_pos
-        cr = sheet_pos.get_crange(key)
-        cr.set_parent(sheet_pos)
-        return key

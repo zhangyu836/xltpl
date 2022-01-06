@@ -4,6 +4,7 @@ import copy
 from jinja2 import nodes
 from jinja2.ext import Extension
 from openpyxl.cell.text import RichText
+from .nodemap import node_map
 
 def yes(font):
     wfont = copy.copy(font)
@@ -29,9 +30,7 @@ def yn(value, font, xlsx):
 
 class YnExtension(Extension):
     tags = set(['yn'])
-
-    def __init__(self, environment):
-        super(self.__class__, self).__init__(environment)
+    xlsx = False
 
     def parse(self, parser):
         lineno = next(parser.stream).lineno
@@ -45,9 +44,12 @@ class YnExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _yn(self, arg0, arg1, caller):
-        segment = self.environment.sheet_pos.current_node
+        segment = node_map.current_node
         if arg1 is not None:
             arg0 = not arg0
-        rv = yn(arg0, segment.font, self.environment.xlsx)
+        rv = yn(arg0, segment.font, self.xlsx)
         rv = segment.process_rich_rv(rv)
         return rv
+
+class YnxExtension(YnExtension):
+    xlsx = True

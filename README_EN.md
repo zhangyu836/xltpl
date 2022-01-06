@@ -24,7 +24,7 @@ pip install xltpl
 {{name}}
 ```
   
-*   Insert control statements in the notes(comments) of cells, use beforerow, beforecell or aftercell to seperate them :
+*   ~~Insert control statements in the notes(comments) of cells, use beforerow, beforecell or aftercell to seperate them :~~
 
 
 ```jinja2
@@ -34,7 +34,7 @@ beforerow{% for item in items %}
 beforerow{% endfor %}
 ```
 
-*   Insert control statements in the cells (**v0.9**, see [incell.py](https://github.com/zhangyu836/xltpl/blob/master/examples/incell.py)) :
+*   Insert control statements in the cells (**v0.9**) :
 
 ```jinja2
 {%- for row in rows %}
@@ -60,8 +60,8 @@ writer.save('result.xlsx')
 * MergedCell   
 * Non-string value for a cell (use **{% xv variable %}** to specify a variable) 
 * For xlsx  
-Image (use **{% img variable %}**, see [images.py](https://github.com/zhangyu836/xltpl/blob/master/examples/images.py))  
-DataValidation (see [ranges_dv.py](https://github.com/zhangyu836/xltpl/blob/master/examples/ranges_dv.py))  
+Image (use **{% img variable %}**)  
+DataValidation   
 AutoFilter
 
 

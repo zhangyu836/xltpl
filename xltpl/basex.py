@@ -1,25 +1,26 @@
 # -*- coding: utf-8 -*-
 
 import copy
-from .patchx import *
-from openpyxl import load_workbook
-from openpyxl.cell.text import InlineFont
-from openpyxl.cell.cell import Cell
-from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
 from openpyxl.utils import get_column_letter
-from .merger import Merger
-from .xlnode import Empty
+from openpyxl.cell.text import InlineFont
+
+from openpyxl.cell.cell import NUMERIC_TYPES, TIME_TYPES, STRING_TYPES
+BOOL_TYPE = bool
+
+def get_type(value):
+    if isinstance(value, NUMERIC_TYPES):
+        dt = 'n'
+    elif isinstance(value, STRING_TYPES):
+        dt = 's'
+    elif isinstance(value, TIME_TYPES):
+        dt = 'd'
+    elif isinstance(value, BOOL_TYPE):
+        dt = 'b'
+    else:
+        return str(value), 's'
+    return value, dt
 
 class SheetBase():
-
-    def __init__(self, bookwriter, rdsheet, sheet_name):
-        self.workbook = bookwriter.workbook
-        self.rdsheet = rdsheet
-        self.wtsheet = self.workbook.create_sheet(title=sheet_name)
-        self.copy_sheet_settings()
-        self.merger = Merger(self.rdsheet, self.wtsheet)
-        self.wtrows = set()
-        self.wtcols = set()
 
     def copy_sheet_settings(self):
         self.wtsheet.sheet_format = copy.copy(self.rdsheet.sheet_format)
@@ -65,16 +66,7 @@ class SheetBase():
         self.wtsheet.column_dimensions[wtkey].worksheet = self.wtsheet
         self.wtcols.add(wtcolx)
 
-    def _get_cell(self, rdrowx, rdcolx):
-        try:
-            return self.rdsheet._cells[(rdrowx, rdcolx)]
-        except:
-            return Cell(self, row=rdrowx, column=rdcolx)
-
-    def _cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value=None, data_type=None):
-        if value is Empty:
-            return
-        source_cell = self._get_cell(rdrowx, rdcolx)
+    def _cell(self, source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value=None, data_type=None):
         target_cell = self.wtsheet.cell(column=wtcolx, row=wtrowx)
         if value is None:
             target_cell.value = source_cell._value
@@ -83,7 +75,9 @@ class SheetBase():
             target_cell._value = value
             target_cell.data_type = data_type
         else:
+            value, data_type = get_type(value)
             target_cell.value = value
+            target_cell.data_type = data_type
         if source_cell.has_style:
             target_cell._style = copy.copy(source_cell._style)
         if source_cell.hyperlink:
@@ -91,48 +85,12 @@ class SheetBase():
         #if source_cell.comment:
         #    target_cell.comment = copy.copy(source_cell.comment)
 
-    def cell(self, rdrowx, rdcolx, wtrowx, wtcolx, value=None, data_type=None):
+    def cell(self, source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value=None, data_type=None):
         self.copy_row_dimension(rdrowx, wtrowx)
         self.copy_col_dimension(rdcolx, wtcolx)
-        self.merge_cell(rdrowx, rdcolx, wtrowx, wtcolx)
-        self._cell(rdrowx, rdcolx, wtrowx, wtcolx, value, data_type)
-
-    def merge_cell(self, rdrowx, rdcolx, wtrowx, wtcolx):
-        self.merger.merge_cell(rdrowx, rdcolx, wtrowx, wtcolx)
-
-    def _mcell(self, rdrowx, rdcolx, wtrowx, wtcolx):
-        source_cell = self._get_cell(rdrowx, rdcolx)
-        target_cell = self.wtsheet.cell(column=wtcolx, row=wtrowx)
-        if source_cell.has_style:
-            target_cell._style = copy.copy(source_cell._style)
-
-    def merge_mcell(self, rdrowx, rdcolx, wtrowx, wtcolx, wt_top):
-        self.merger.merge_mcell( rdrowx, rdcolx, wtrowx, wtcolx, wt_top)
-
-    def mcell(self, rdrowx, rdcolx, wtrowx, wtcolx, wt_top):
-        self.copy_row_dimension(rdrowx, wtrowx)
-        self.copy_col_dimension(rdcolx, wtcolx)
-        self.merge_mcell(rdrowx, rdcolx, wtrowx, wtcolx, wt_top)
-        self._mcell(rdrowx, rdcolx, wtrowx, wtcolx)
-
-    def merge_finish(self):
-        self.merger.finish()
+        self._cell(source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value, data_type)
 
 class BookBase():
-
-    def load(self, fname):
-        self.workbook = load_workbook(fname)
-        self.font_map = {}
-        self.sheet_name_map = {}
-        self.rdsheet_list = []
-        for rdsheet in self.workbook.worksheets:
-            self.get_sheet_maps(rdsheet)
-            self.sheet_name_map[rdsheet.title] = len(self.sheet_name_map)
-            self.rdsheet_list.append(rdsheet)
-            self.workbook.remove(rdsheet)
-
-    def get_sheet_maps(self, sheet):
-        Merger.get_sheet_maps(sheet)
 
     def get_font(self, fontId):
         ifont = self.font_map.get(fontId)
@@ -158,23 +116,3 @@ class BookBase():
             ifont.scheme = font.scheme
             self.font_map[fontId] = ifont
             return ifont
-
-
-    def get_tpl_idx(self, payload):
-        idx = payload.get('tpl_idx')
-        if not idx:
-            name = payload.get('tpl_name')
-            if name:
-                idx = self.sheet_name_map[name]
-            else:
-                idx = 0
-        return idx
-
-    def get_sheet_name(self, payload, key=None):
-        name = payload.get('sheet_name')
-        if not name:
-            if key:
-                name = key
-            else:
-                name = 'XLSheet%d' % len(self.workbook._sheets)
-        return name

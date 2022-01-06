@@ -23,7 +23,7 @@ pip install xltpl
 ```jinja2
 {{name}}
 ```  
-*   在单元格的批注中插入控制语句（使用 beforerow、beforecell 和 aftercell 指定其位置）：  
+*   ~~在单元格的批注中插入控制语句（使用 beforerow、beforecell 和 aftercell 指定其位置）：~~  
 
 
 ```jinja2
@@ -33,7 +33,7 @@ beforerow{% for item in items %}
 beforerow{% endfor %}
 ```
 
-*   或在单元格中插入控制语句(**v0.9**, 见 [incell.py](https://github.com/zhangyu836/xltpl/blob/master/examples/incell.py) )：
+*   或在单元格中插入控制语句(**v0.9**)：
 
 ```jinja2
 {%- for row in rows %}
@@ -58,11 +58,11 @@ writer.save('result.xlsx')
 
 ## 支持的特性
 * 合并单元格 (MergedCell)   
-* 单元格非字符串值 (使用 **{% xv variable %}** 来表示变量)
-* 对于 xlsx  
-图片 (使用 **{% img variable %}**, 见 [images.py](https://github.com/zhangyu836/xltpl/blob/master/examples/images.py))  
-数据有效性(DataValidation, 见 [ranges_dv.py](https://github.com/zhangyu836/xltpl/blob/master/examples/ranges_dv.py))  
-筛选 (AutoFilter)
+* 单元格非字符串值 (使用 **{% xv variable %}** 来表示变量)   
+* 对于 xlsx     
+图片 (使用 **{% img variable %}**)     
+数据有效性(DataValidation)     
+筛选 (AutoFilter)   
 
 
 ## 相关

@@ -1,24 +1,22 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
 import six
-from copy import copy
-from .misc import TreeProperty
-from .utils import tag_test, xv_test, find_cell_tag, block_split, rich_split, img_test
+from .utils import tag_test, xv_test, v_test, find_cell_tag, block_split, rich_split, img_test
+from .nodemap import node_map
 
 class Node(object):
-    node_map = TreeProperty('node_map')
     ext_tag = 'node'
 
     def __init__(self):
         self._children = []
         self._parent = None
         self.no = 0
+        self._depth = -1
 
     @property
     def depth(self):
-        if not hasattr(self, '_depth'):
-            if not hasattr(self, '_parent') or self._parent is None or self._parent is self:
+        if self._depth == -1:
+            if self._parent is None or self._parent is self:
                 self._depth = 0
             else:
                 self._depth = self._parent.depth + 1
@@ -26,10 +24,12 @@ class Node(object):
 
     @property
     def node_key(self):
-        return '%s,%s' % (self._parent.node_key, self.no)
+        return id(self)
+        return '%s,%d' % (self._parent.node_key, self.no)
 
     @property
     def node_tag(self):
+        return "{%%%s %s %%}" % (self.ext_tag, self.node_key)
         return "{%%%s '%s' %%}" % (self.ext_tag, self.node_key)
 
     @property
@@ -45,7 +45,7 @@ class Node(object):
     def to_tag(self):
         if self._children:
             return self.children_to_tag()
-        self.node_map[self.node_key] = self
+        node_map.put(self.node_key, self)
         return self.node_tag
 
     def tag_tree(self):
@@ -73,13 +73,6 @@ class Node(object):
     def __str__(self):
         return self.__class__.__name__ + ' , ' + self.node_tag
 
-    def copy(self):
-        node = copy(self)
-        node._children = []
-        for child in self._children:
-            node.add_child(child.copy())
-        return node
-
     def set_image_ref(self, image_ref, image_key):
         self._parent.set_image_ref(image_ref, image_key)
 
@@ -91,7 +84,8 @@ class Segment(Node):
 
     @property
     def node_tag(self):
-        fmt = "{%%seg '%s'%%}%s{%%endseg%%}"
+        #fmt = "{%%seg '%s'%%}%s{%%endseg%%}"
+        fmt = "{%%seg %d%%}%s{%%endseg%%}"
         return fmt % (self.node_key, self.text)
 
     def process_rv(self, rv):
@@ -122,7 +116,8 @@ class ImageSegment(Segment):
 
     @property
     def node_tag(self):
-        fmt = "{%%seg '%s'%%}{%%endseg%%}%s"
+        #fmt = "{%%seg '%s'%%}{%%endseg%%}%s"
+        fmt = "{%%seg %s%%}{%%endseg%%}%s"
         return fmt % (self.node_key, self.text)
 
 class Section(Node):
@@ -200,8 +195,9 @@ class Section(Node):
 class Cell(Node):
     ext_tag = 'cell'
 
-    def __init__(self, rowx, colx, value, cty):
+    def __init__(self, sheet_cell, rowx, colx, value, cty):
         Node.__init__(self)
+        self.sheet_cell = sheet_cell
         self.rowx = rowx
         self.colx = colx
         self.value = value
@@ -216,28 +212,22 @@ class Cell(Node):
             return beforecell + tag + aftercell
         return tag
 
-    def extend_cell_tag(self, other):
-        if self.cell_tag:
-            self.cell_tag.extend(other)
-        else:
-            self.cell_tag = other
-
     def exit(self):
         self.write(self.value, self.cty)
 
     def process_child_rv(self, rv):
         pass
 
-    def write(self, value, cty):
-        self._parent.write_cell(self.rowx, self.colx, value, cty)
+    def write(self, rv, cty):
+        self._parent.write_cell(self, rv, cty)
 
     def set_image_ref(self, image_ref, image_key):
         self._parent.set_image_ref(image_ref, (self.rowx,self.colx,image_key))
 
 class TagCell(Section, Cell):
 
-    def __init__(self, rowx, colx, value, cty, font, rich_handler):
-        Cell.__init__(self, rowx, colx, value, cty)
+    def __init__(self, sheet_cell, rowx, colx, value, cty, font, rich_handler):
+        Cell.__init__(self, sheet_cell, rowx, colx, value, cty)
         self.font = font
         self.rich_handler = rich_handler
         self.unpack(value)
@@ -248,10 +238,11 @@ class TagCell(Section, Cell):
             rv = self.rich_handler.rich_content(rv)
         self.write(rv, self.cty)
 
+
 class RichTagCell(Cell):
 
-    def __init__(self, rowx, colx, value, cty, font, rich_handler):
-        Cell.__init__(self, rowx, colx, value, cty)
+    def __init__(self, sheet_cell, rowx, colx, value, cty, font, rich_handler):
+        Cell.__init__(self, sheet_cell, rowx, colx, value, cty)
         self.font = font
         self.rich_handler = rich_handler
         self.unpack(value)
@@ -274,28 +265,33 @@ class RichTagCell(Cell):
         else:
             self.child_rvs.append(rv)
 
-class Empty(object):
-    pass
-
 class EmptyCell(Cell):
 
     def __init__(self, rowx, colx):
         Node.__init__(self)
+        self.sheet_cell = None
         self.rowx = rowx
         self.colx = colx
-        self.value = ''
+        self.value = None
         self.cty = None
         self.cell_tag = None
 
-    def exit(self):
-        self.write(Empty, None)
-
 class XvCell(Cell):
 
-    def __init__(self, rowx, colx, value, cty):
-        Cell.__init__(self, rowx, colx, value, cty)
-        seg = Segment(self.value)
-        self.add_child(seg)
+    def __init__(self, sheet_cell, rowx, colx, value, cty, isXv):
+        Cell.__init__(self, sheet_cell, rowx, colx, value, cty)
+        self.isXv = isXv
+
+    @property
+    def node_tag(self):
+        tag = self.value.strip()
+        if self.isXv:
+            head = tag[:-2].strip()
+            tag = "%s,%d%%}" % (head, self.node_key)
+        else:
+            body = tag[2:-2].strip()
+            tag = "{%%xv %s,%d%%}" % (body, self.node_key)
+        return tag
 
     def enter(self):
         self.rv = None
@@ -303,18 +299,6 @@ class XvCell(Cell):
     def exit(self):
         self.write(self.rv, None)
 
-class ExtraCell(Cell):
-    ext_tag = 'extra'
-
-    def to_tag(self):
-        tag = Node.to_tag(self)
-        if self.cell_tag:
-            extra = self.cell_tag.extracell
-            return tag + extra
-        return tag
-
-    def exit(self):
-        pass
 
 class Row(Node):
     ext_tag = 'row'
@@ -332,89 +316,50 @@ class Row(Node):
         return tag
 
     def enter(self):
-        self._parent.next_row()
+        self._parent.write_row(self)
 
-class CellRange(Node):
-    ext_tag = 'crange'
+class Tree(Node):
+    ext_tag = 'tree'
 
-    def __init__(self, xlrange):
+    def __init__(self, index):
         Node.__init__(self)
-        self.sheet_pos = None
-        self.xlrange = xlrange
-        self.rkey = xlrange.rkey
-        self._depth = xlrange.depth + 1
-        self._node_map = xlrange.node_map
-        self.get_children()
+        self._depth = 0
+        self.no = index
+        self.sheet_writer = None
 
     @property
     def node_key(self):
-        return self.rkey
+        return str(self.no)
 
-    def get_children(self):
-        if self.rkey == 'tail':
-            cell = ExtraCell(0, 0, 0, 0)
-            self.add_child(cell)
-            return
-        xlrange = self.xlrange
-        cell_map = self.xlrange.cell_map
-        cell_tag_map = self.xlrange.cell_tag_map
-        cp = '*' in self.rkey
-        for rowx in range(xlrange.min_rowx, xlrange.max_rowx + 1):
-            row = Row(rowx)
-            self.add_child(row)
-            for colx in range(xlrange.min_colx, xlrange.max_colx + 1):
-                cell = cell_map.get((rowx, colx))
-                if cp:
-                    cell = cell.copy()
-                self.add_child(cell)
-                cell_tag = cell_tag_map.get((rowx, colx))
-                if cell_tag:
-                    cell.extend_cell_tag(cell_tag)
-                if cell.cell_tag:
-                    if colx == xlrange.min_colx:
-                        row.cell_tag = cell.cell_tag
-                    if cell.cell_tag.extracell:
-                        extra = ExtraCell(0, 0, 0, 0)
-                        extra.cell_tag = cell.cell_tag
-                        self.add_child(extra)
-        if self._depth == 1:
-            cell = ExtraCell(0, 0, 0, 0)
-            self.add_child(cell)
+    def set_sheet_writer(self, sheet_writer):
+        self.sheet_writer = sheet_writer
 
-    def set_parent(self, sheet_pos):
-        if sheet_pos is self.sheet_pos:
-            return
-        else:
-            self._parent = sheet_pos.get_pos(self.node_key)
-            self.sheet_pos = sheet_pos
+    def write_row(self, row_node):
+        self.sheet_writer.write_row(row_node)
 
-    def to_tag(self):
-        tag = Node.to_tag(self)
-        self.node_map[self.node_key] = self
-        return self.node_tag + tag
+    def write_cell(self, cell_node, rv, cty):
+        self.sheet_writer.write_cell(cell_node, rv, cty)
 
-    def next_row(self):
-        self._parent.next_row()
+    def set_image_ref(self, image_ref, image_key):
+        self.sheet_writer.set_image_ref(image_ref, image_key)
 
-    def write_cell(self, rowx, colx, value, cty):
-        self._parent.write_cell(rowx, colx, value, cty)
-
-
-def create_cell(rowx, colx, value, rich_text, data_type, font, rich_handler):
+def create_cell(sheet_cell, rowx, colx, value, rich_text, data_type, font, rich_handler):
     s,cell_tag,head,tail = find_cell_tag(value)
     if s == '':
-        cell = Cell(rowx, colx, s, data_type)
+        cell = Cell(sheet_cell, rowx, colx, s, data_type)
     elif xv_test(s):
-        cell = XvCell(rowx, colx, s, data_type)
+        cell = XvCell(sheet_cell, rowx, colx, s, data_type, True)
+    elif v_test(s):
+        cell = XvCell(sheet_cell, rowx, colx, s, data_type, False)
     elif not rich_text:
-        cell = TagCell(rowx, colx, s, data_type, font, rich_handler)
+        cell = TagCell(sheet_cell, rowx, colx, s, data_type, font, rich_handler)
     else:
         if head == 0 and tail == 0:
-            cell = RichTagCell(rowx, colx, rich_text, data_type, font, rich_handler)
+            cell = RichTagCell(sheet_cell, rowx, colx, rich_text, data_type, font, rich_handler)
         else:
             _tail = head + len(s) - 1
             _rich,_text = rich_handler.mid(rich_text, head, _tail)
-            cell = RichTagCell(rowx, colx, _rich, data_type, font, rich_handler)
+            cell = RichTagCell(sheet_cell, rowx, colx, _rich, data_type, font, rich_handler)
     if cell_tag:
         cell.cell_tag = cell_tag
     return cell
