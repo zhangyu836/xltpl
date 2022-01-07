@@ -1,13 +1,13 @@
 
 
 class NodeMap():
-    node_map = {}
 
     def __init__(self):
         self.current_node = None
         self.current_key = ''
         self.last_node = None
         self.last_key = None
+        self.node_map = {}
 
     def set_current_node(self, node):
         self.current_node = node
@@ -53,7 +53,6 @@ class NodeMap():
         for next in next_branch:
             next.enter()
 
-
     def get_node(self, key):
         if key == self.current_key:
             return self.current_node
@@ -65,4 +64,3 @@ class NodeMap():
             self.find_lca(self.last_node, self.current_node)
         return self.current_node
 
-node_map = NodeMap()

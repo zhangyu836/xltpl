@@ -5,8 +5,6 @@ import six
 from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.runtime import Undefined
-from .xlnode import XvCell
-from .nodemap import node_map
 
 class NodeExtension(Extension):
     tags = set(['row', 'cell', 'node', 'extra'])
@@ -19,7 +17,7 @@ class NodeExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _node(self, key, caller):
-        node = node_map.get_node(key)
+        node = self.environment.node_map.get_node(key)
         return str(key)
 
 class SegmentExtension(Extension):
@@ -33,7 +31,7 @@ class SegmentExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _seg(self, key, caller):
-        segment = node_map.get_node(key)
+        segment = self.environment.node_map.get_node(key)
         rv = caller()
         rv = segment.process_rv(rv)
         return rv
@@ -55,7 +53,7 @@ class XvExtension(Extension):
     def _xv(self, xv, key, caller):
         if key==0:
             return six.text_type(xv)
-        xvcell = node_map.get_node(key)
+        xvcell = self.environment.node_map.get_node(key)
         if xv is None or type(xv) is Undefined:
             xv = ''
         xvcell.rv = xv
@@ -101,7 +99,7 @@ class ImagexExtension(Extension):
     def _image(self, image_ref, image_key, caller):
         if not pil:
             return ''
-        node = node_map.current_node
+        node = self.environment.node_map.current_node
         if not isinstance(image_ref, ImageFile):
             fname = six.text_type(image_ref)
             if not os.path.exists(fname):

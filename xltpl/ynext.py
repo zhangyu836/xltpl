@@ -4,7 +4,6 @@ import copy
 from jinja2 import nodes
 from jinja2.ext import Extension
 from openpyxl.cell.text import RichText
-from .nodemap import node_map
 
 def yes(font):
     wfont = copy.copy(font)
@@ -44,7 +43,7 @@ class YnExtension(Extension):
                                [], [], body).set_lineno(lineno)
 
     def _yn(self, arg0, arg1, caller):
-        segment = node_map.current_node
+        segment = self.environment.node_map.current_node
         if arg1 is not None:
             arg0 = not arg0
         rv = yn(arg0, segment.font, self.xlsx)

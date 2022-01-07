@@ -6,7 +6,8 @@ from .basex import SheetBase, BookBase
 from .writermixin import SheetMixin, BookMixin
 from .utils import tag_test
 from .xlnode import Tree, Row, Cell, EmptyCell, Node, create_cell
-from .jinja import jinja_envx
+from .jinja import JinjaEnvx
+from .nodemap import NodeMap
 from .sheetresource import SheetResource
 from .richtexthandler import rich_handlerx
 from .mergerx import Merger
@@ -33,23 +34,22 @@ class BookWriter(BookBase, BookMixin):
         self.debug = debug
         self.load(fname)
 
-
     def load(self, fname):
         self.workbook = load_workbook(fname)
         self.font_map = {}
         self.sheet_writer_map = {}
         self.sheet_resource_map = {}
-        self.jinja_env = jinja_envx
+        self.node_map = NodeMap()
+        self.jinja_env = JinjaEnvx(self.node_map)
         for index,rdsheet in enumerate(self.workbook.worksheets):
             sheet_tree = self.build(rdsheet, index)
             merger = Merger(rdsheet)
-            sheet_resource = SheetResource(rdsheet, sheet_tree, jinja_envx, merger)
+            sheet_resource = SheetResource(rdsheet, sheet_tree, self.jinja_env, merger)
             self.put_sheet_resource(index, rdsheet.title, sheet_resource)
             self.workbook.remove(rdsheet)
 
     def build(self, sheet, index):
-        tree = Tree(index)
-
+        tree = Tree(index, self.node_map)
         for rowx in range(1, sheet.max_row + 1):
             row_node = Row(rowx)
             tree.add_child(row_node)

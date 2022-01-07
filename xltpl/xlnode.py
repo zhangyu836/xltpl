@@ -2,9 +2,10 @@
 
 import six
 from .utils import tag_test, xv_test, v_test, find_cell_tag, block_split, rich_split, img_test
-from .nodemap import node_map
+from .misc import TreeProperty
 
 class Node(object):
+    node_map = TreeProperty('node_map')
     ext_tag = 'node'
 
     def __init__(self):
@@ -45,7 +46,7 @@ class Node(object):
     def to_tag(self):
         if self._children:
             return self.children_to_tag()
-        node_map.put(self.node_key, self)
+        self.node_map.put(self.node_key, self)
         return self.node_tag
 
     def tag_tree(self):
@@ -321,10 +322,11 @@ class Row(Node):
 class Tree(Node):
     ext_tag = 'tree'
 
-    def __init__(self, index):
+    def __init__(self, index, node_map):
         Node.__init__(self)
         self._depth = 0
         self.no = index
+        self.node_map = node_map
         self.sheet_writer = None
 
     @property
@@ -333,6 +335,7 @@ class Tree(Node):
 
     def set_sheet_writer(self, sheet_writer):
         self.sheet_writer = sheet_writer
+        self.node_map.set_current_node(self)
 
     def write_row(self, row_node):
         self.sheet_writer.write_row(row_node)
