@@ -9,7 +9,7 @@ with open(README, 'r', encoding='utf-8') as fd:
 
 setup(
     name = 'xltpl',
-    version = "0.12",
+    version = "0.12.1",
     author = 'Zhang Yu',
     author_email = 'zhangyu836@gmail.com',
     url = 'https://github.com/zhangyu836/xltpl',
