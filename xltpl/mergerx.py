@@ -161,6 +161,8 @@ class ImageMerger(MergerMixin):
         self.images = []
         self._merge_map = {}
         self._merge_list = []
+        self.max_row = 0
+        self.max_col = 0
         self.get_merge_list(sheet)
 
     def get_merge_list(self, rdsheet):
@@ -169,6 +171,8 @@ class ImageMerger(MergerMixin):
             _merge = ImageMerge(image, self, image_count_dict)
             self._merge_map[_merge.image_key] = _merge
             self._merge_list.append(_merge)
+            self.max_row = max(self.max_row, _merge._last_row)
+            self.max_col = max(self.max_col, _merge._last_col)
 
     def add_image(self, image):
         self.images.append(image)

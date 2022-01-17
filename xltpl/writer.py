@@ -11,6 +11,7 @@ from .nodemap import NodeMap
 from .sheetresource import SheetResource
 from .richtexthandler import rich_handler
 from .merger import Merger
+from .config import config
 
 class SheetWriter(SheetBase, SheetMixin):
 
@@ -31,7 +32,7 @@ class BookWriter(BookBase, BookMixin):
     sheet_writer_cls = SheetWriter
 
     def __init__(self, fname, debug=False):
-        self.debug = debug
+        config.debug = debug
         self.load(fname)
 
     def load(self, fname):

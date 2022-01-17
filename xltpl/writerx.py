@@ -11,6 +11,7 @@ from .nodemap import NodeMap
 from .sheetresource import SheetResource
 from .richtexthandler import rich_handlerx
 from .mergerx import Merger
+from .config import config
 
 class SheetWriter(SheetBase, SheetMixin):
 
@@ -31,7 +32,7 @@ class BookWriter(BookBase, BookMixin):
     sheet_writer_cls = SheetWriter
 
     def __init__(self, fname, debug=False):
-        self.debug = debug
+        config.debug = debug
         self.load(fname)
 
     def load(self, fname):
@@ -42,18 +43,20 @@ class BookWriter(BookBase, BookMixin):
         self.node_map = NodeMap()
         self.jinja_env = JinjaEnvx(self.node_map)
         for index,rdsheet in enumerate(self.workbook.worksheets):
-            sheet_tree = self.build(rdsheet, index)
             merger = Merger(rdsheet)
+            sheet_tree = self.build(rdsheet, index, merger)
             sheet_resource = SheetResource(rdsheet, sheet_tree, self.jinja_env, merger)
             self.put_sheet_resource(index, rdsheet.title, sheet_resource)
             self.workbook.remove(rdsheet)
 
-    def build(self, sheet, index):
+    def build(self, sheet, index, merger):
         tree = Tree(index, self.node_map)
-        for rowx in range(1, sheet.max_row + 1):
+        max_row = max(sheet.max_row, merger.image_merger.max_row)
+        max_col = max(sheet.max_column, merger.image_merger.max_col)
+        for rowx in range(1, max_row + 1):
             row_node = Row(rowx)
             tree.add_child(row_node)
-            for colx in range(1, sheet.max_column + 1):
+            for colx in range(1, max_col + 1):
                 sheet_cell = sheet._cells.get((rowx, colx))
                 if not sheet_cell:
                     cell_node = EmptyCell(rowx, colx)
