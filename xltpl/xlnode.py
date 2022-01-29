@@ -213,6 +213,12 @@ class Cell(Node):
             return beforecell + tag + aftercell
         return tag
 
+    def extend_cell_tag(self, other):
+        if self.cell_tag:
+            self.cell_tag.extend(other)
+        else:
+            self.cell_tag = other
+
     def exit(self):
         self.write(self.value, self.cty)
 

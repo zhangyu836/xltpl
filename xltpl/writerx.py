@@ -4,7 +4,7 @@ from .patchx import *
 from openpyxl import load_workbook
 from .basex import SheetBase, BookBase
 from .writermixin import SheetMixin, BookMixin
-from .utils import tag_test
+from .utils import tag_test, parse_cell_tag
 from .xlnode import Tree, Row, Cell, EmptyCell, Node, create_cell
 from .jinja import JinjaEnvx
 from .nodemap import NodeMap
@@ -12,6 +12,7 @@ from .sheetresource import SheetResource
 from .richtexthandler import rich_handlerx
 from .mergerx import Merger
 from .config import config
+from .misc import CellTag
 
 class SheetWriter(SheetBase, SheetMixin):
 
@@ -62,7 +63,11 @@ class BookWriter(BookBase, BookMixin):
                     cell_node = EmptyCell(rowx, colx)
                     tree.add_child(cell_node)
                     continue
-
+                cell_tag_map = None
+                if sheet_cell.comment:
+                    comment = sheet_cell.comment.text
+                    if tag_test(comment):
+                        _,cell_tag_map = parse_cell_tag(comment)
                 value = sheet_cell._value
                 data_type = sheet_cell.data_type
                 rich_text = None
@@ -76,6 +81,11 @@ class BookWriter(BookBase, BookMixin):
                         cell_node = create_cell(sheet_cell, rowx, colx, value, rich_text, data_type, font, rich_handlerx)
                 else:
                     cell_node = Cell(sheet_cell, rowx, colx, value, data_type)
+                if cell_tag_map:
+                    cell_tag = CellTag(cell_tag_map)
+                    cell_node.extend_cell_tag(cell_tag)
+                    if colx==1:
+                        row_node.cell_tag = cell_tag
                 tree.add_child(cell_node)
             tree.add_child(Node())#
         return tree

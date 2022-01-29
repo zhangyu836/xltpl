@@ -4,7 +4,7 @@ import six
 
 from .base import SheetBase, BookBase
 from .writermixin import SheetMixin, BookMixin
-from .utils import tag_test
+from .utils import tag_test, parse_cell_tag
 from .xlnode import Tree, Row, Cell, EmptyCell, Node, create_cell
 from .jinja import JinjaEnv
 from .nodemap import NodeMap
@@ -12,6 +12,7 @@ from .sheetresource import SheetResource
 from .richtexthandler import rich_handler
 from .merger import Merger
 from .config import config
+from .misc import CellTag
 
 class SheetWriter(SheetBase, SheetMixin):
 
@@ -60,6 +61,12 @@ class BookWriter(BookBase, BookMixin):
                     cell_node = EmptyCell(rowx, colx)
                     tree.add_child(cell_node)
                     continue
+                cell_tag_map = None
+                note = sheet.cell_note_map.get((rowx, colx))
+                if note:
+                    comment = note.text
+                    if tag_test(comment):
+                        _, cell_tag_map = parse_cell_tag(comment)
                 value = sheet_cell.value
                 cty = sheet_cell.ctype
                 rich_text = self.get_rich_text(sheet, rowx, colx)
@@ -74,6 +81,11 @@ class BookWriter(BookBase, BookMixin):
                         cell_node = create_cell(sheet_cell, rowx, colx, value, rich_text, cty, font, rich_handler)
                 else:
                     cell_node = Cell(sheet_cell, rowx, colx, value, cty)
+                if cell_tag_map:
+                    cell_tag = CellTag(cell_tag_map)
+                    cell_node.extend_cell_tag(cell_tag)
+                    if colx==0:
+                        row_node.cell_tag = cell_tag
                 tree.add_child(cell_node)
             tree.add_child(Node())  #
         return tree
