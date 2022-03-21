@@ -74,7 +74,10 @@ A Django library for exporting data in xlsx, xls, docx format, utilizing xltpl a
 [Live demo](https://tranquil-tundra-83829.herokuapp.com/) (User name: admin
 Password: admin)   
 
-* [xltpl for nodejs](https://github.com/zhangyu836/node-xlsx-template)
+* [xltpl for nodejs](https://github.com/zhangyu836/node-xlsx-template)   
+CodeSandbox examples: 
+[browser](https://codesandbox.io/s/xlsx-export-with-exceljs-and-xltpl-58j9g6)
+[node](https://codesandbox.io/s/exceljs-template-with-xltpl-4w58xo)    
 * [xltpl for java](https://github.com/zhangyu836/xltpl4java)
 
 
