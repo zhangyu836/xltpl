@@ -74,7 +74,10 @@ writer.save('result.xlsx')
 [演示项目](https://github.com/zhangyu836/django-excel-export-demo)  
 [在线演示](https://tranquil-tundra-83829.herokuapp.com/) (用户名: admin
 密码: admin)   
-* [nodejs 版本的 xltpl](https://github.com/zhangyu836/node-xlsx-template)
+* [nodejs 版本的 xltpl](https://github.com/zhangyu836/node-xlsx-template)   
+CodeSandbox examples: 
+[browser](https://codesandbox.io/s/xlsx-export-with-exceljs-and-xltpl-58j9g6)
+[node](https://codesandbox.io/s/exceljs-template-with-xltpl-4w58xo)   
 * [xltpl for java](https://github.com/zhangyu836/xltpl4java)
 
 
