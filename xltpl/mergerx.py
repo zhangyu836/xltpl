@@ -140,9 +140,9 @@ class ImageMerge(MergeMixin):
         _to.col = self.end_wtcolx - 1
         self.image_copy_map[(self.start_wtrowx, self.start_wtcolx)] = image
 
-    def set_image_ref(self, wt_top_left, image_ref):
-        if image_ref:
-            self.image_ref_map[wt_top_left] = image_ref
+    def set_image_ref(self, image_ref):
+        if image_ref.image:
+            self.image_ref_map[image_ref.wt_top_left] = image_ref.image
 
     def collect_range(self):
         self.new_range()
@@ -177,11 +177,11 @@ class ImageMerger(MergerMixin):
     def add_image(self, image):
         self.images.append(image)
 
-    def set_image_ref(self, image_ref, image_key, wt_top_left):
-        _merge = self._merge_map.get(image_key)
+    def set_image_ref(self, image_ref):
+        _merge = self._merge_map.get(image_ref.image_key)
         if not _merge:
             return
-        _merge.set_image_ref(wt_top_left, image_ref)
+        _merge.set_image_ref(image_ref)
 
     def merge_cell(self, rdrowx, rdcolx, wtrowx, wtcolx):
         for _merge in self._merge_list:
@@ -249,6 +249,6 @@ class Merger:
         for merger in self.merger_list:
             merger.collect_range(wtsheet)
 
-    def set_image_ref(self, image_ref, image_key, wt_top_left):
-        self.image_merger.set_image_ref(image_ref, image_key, wt_top_left)
+    def set_image_ref(self, image_ref):
+        self.image_merger.set_image_ref(image_ref)
 

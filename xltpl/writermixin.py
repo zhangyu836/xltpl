@@ -20,9 +20,10 @@ class SheetMixin(object):
         if cell_node.sheet_cell:
             self.cell(cell_node.sheet_cell, cell_node.rowx, cell_node.colx, self.current_row_num, self.current_col_num, rv, cty)
 
-    def set_image_ref(self, image_ref, image_key):
-        wt_top_left = (self.current_row_num, self.current_col_num+1)
-        self.merger.set_image_ref(image_ref, image_key, wt_top_left)
+    def set_image_ref(self, image_ref):
+        image_ref.wtrowx = self.current_row_num
+        image_ref.wtcolx = self.current_col_num + 1
+        self.merger.set_image_ref(image_ref)
 
 
 class BookMixin(object):
@@ -55,13 +56,8 @@ class BookMixin(object):
                 return sheet_name
         return "XLSheet"
 
-    def put_sheet_resource(self, index, name, sheet_resource):
-        self.sheet_resource_map[index] = sheet_resource
-        self.sheet_resource_map[name] = sheet_resource
-
     def get_sheet_resource(self, payload):
-        key = payload.get('tpl_name') or payload.get('tpl_idx') or payload.get('tpl_index')
-        return self.sheet_resource_map.get(key) or self.sheet_resource_map.get(0)
+        return self.sheet_resource_map.get_sheet_resource(payload)
 
     def render_sheet(self, payload):
         sheet_name = self.get_sheet_name(payload)

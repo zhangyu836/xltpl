@@ -8,7 +8,7 @@ from .utils import tag_test, parse_cell_tag
 from .xlnode import Tree, Row, Cell, EmptyCell, Node, create_cell
 from .jinja import JinjaEnvx
 from .nodemap import NodeMap
-from .sheetresource import SheetResource
+from .sheetresource import SheetResourceMap
 from .richtexthandler import rich_handlerx
 from .mergerx import Merger
 from .config import config
@@ -39,15 +39,13 @@ class BookWriter(BookBase, BookMixin):
     def load(self, fname):
         self.workbook = load_workbook(fname)
         self.font_map = {}
-        self.sheet_writer_map = {}
-        self.sheet_resource_map = {}
         self.node_map = NodeMap()
         self.jinja_env = JinjaEnvx(self.node_map)
+        self.merger_cls = Merger
+        self.sheet_writer_map = {}
+        self.sheet_resource_map = SheetResourceMap(self, self.jinja_env)
         for index,rdsheet in enumerate(self.workbook.worksheets):
-            merger = Merger(rdsheet)
-            sheet_tree = self.build(rdsheet, index, merger)
-            sheet_resource = SheetResource(rdsheet, sheet_tree, self.jinja_env, merger)
-            self.put_sheet_resource(index, rdsheet.title, sheet_resource)
+            self.sheet_resource_map.add(rdsheet, rdsheet.title, index)
             self.workbook.remove(rdsheet)
 
     def build(self, sheet, index, merger):
@@ -87,7 +85,7 @@ class BookWriter(BookBase, BookMixin):
                     if colx==1:
                         row_node.cell_tag = cell_tag
                 tree.add_child(cell_node)
-            tree.add_child(Node())#
+        tree.add_child(Node())#
         return tree
 
 

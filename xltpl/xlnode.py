@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import six
+from openpyxl.utils import get_column_letter
 from .utils import tag_test, xv_test, v_test, find_cell_tag, block_split, rich_split, img_test
 from .misc import TreeProperty
+
+class DebugInfo():
+
+    def __init__(self):
+        self.value = None
+        self.cell_tag = None
 
 class Node(object):
     node_map = TreeProperty('node_map')
@@ -25,12 +32,10 @@ class Node(object):
 
     @property
     def node_key(self):
-        return id(self)
         return '%s,%d' % (self._parent.node_key, self.no)
 
     @property
     def node_tag(self):
-        return "{%%%s %s %%}" % (self.ext_tag, self.node_key)
         return "{%%%s '%s' %%}" % (self.ext_tag, self.node_key)
 
     @property
@@ -74,8 +79,11 @@ class Node(object):
     def __str__(self):
         return self.__class__.__name__ + ' , ' + self.node_tag
 
-    def set_image_ref(self, image_ref, image_key):
-        self._parent.set_image_ref(image_ref, image_key)
+    def set_image_ref(self, image_ref):
+        self._parent.set_image_ref(image_ref)
+
+    def get_debug_info(self, offset):
+        return self._parent.get_debug_info(offset)
 
 class Segment(Node):
 
@@ -85,13 +93,26 @@ class Segment(Node):
 
     @property
     def node_tag(self):
-        #fmt = "{%%seg '%s'%%}%s{%%endseg%%}"
-        fmt = "{%%seg %d%%}%s{%%endseg%%}"
+        fmt = "{%%seg '%s'%%}%s{%%endseg%%}"
         return fmt % (self.node_key, self.text)
 
     def process_rv(self, rv):
         self._parent.process_child_rv(rv)
         return rv
+
+    def get_debug_info(self, offset):
+        debug = super().get_debug_info(offset)
+        debug.value = self.text
+        if debug.cell_tag:
+            if debug.cell_tag.beforecell:
+                if self.no==0:
+                    if isinstance(self._parent, TagCell) or self._parent.no==0:
+                        debug.value = debug.cell_tag.beforecell + debug.value
+            if debug.cell_tag.aftercell:
+                if self.no == len(self._parent._children) - 1:
+                    if isinstance(self._parent, TagCell) or self._parent.no == len(self._parent._parent._children) - 1:
+                        debug.value += debug.cell_tag.aftercell
+        return debug
 
 class RichSegment(Segment):
 
@@ -117,8 +138,7 @@ class ImageSegment(Segment):
 
     @property
     def node_tag(self):
-        #fmt = "{%%seg '%s'%%}{%%endseg%%}%s"
-        fmt = "{%%seg %s%%}{%%endseg%%}%s"
+        fmt = "{%%seg '%s'%%}{%%endseg%%}%s"
         return fmt % (self.node_key, self.text)
 
 class Section(Node):
@@ -228,8 +248,26 @@ class Cell(Node):
     def write(self, rv, cty):
         self._parent.write_cell(self, rv, cty)
 
-    def set_image_ref(self, image_ref, image_key):
-        self._parent.set_image_ref(image_ref, (self.rowx,self.colx,image_key))
+    def set_image_ref(self, image_ref):
+        image_ref.rdrowx = self.rowx
+        image_ref.rdcolx = self.colx
+        self._parent.set_image_ref(image_ref)
+
+    def get_coordinate(self, offset):
+        col_letter = get_column_letter(self.colx + offset)
+        return "%s%d" % (col_letter, self.rowx + offset)
+
+    def get_debug_info(self, offset):
+        debug = DebugInfo()
+        coordinate = self.get_coordinate(offset)
+        debug.coordinate = coordinate
+        debug.address = 'Cell %s' % coordinate
+        if self.cell_tag:
+            debug.cell_tag = self.cell_tag
+            debug.value = self.cell_tag.beforecell + self.value + self.cell_tag.aftercell
+        else:
+            debug.value = self.value
+        return debug
 
 class TagCell(Section, Cell):
 
@@ -294,10 +332,12 @@ class XvCell(Cell):
         tag = self.value.strip()
         if self.isXv:
             head = tag[:-2].strip()
-            tag = "%s,%d%%}" % (head, self.node_key)
+            #tag = "%s,%d%%}" % (head, self.node_key)
+            tag = "%s,'%s'%%}" % (head, self.node_key)
         else:
             body = tag[2:-2].strip()
-            tag = "{%%xv %s,%d%%}" % (body, self.node_key)
+            #tag = "{%%xv %s,%d%%}" % (body, self.node_key)
+            tag = "{%%xv %s,'%s'%%}" % (body, self.node_key)
         return tag
 
     def enter(self):
@@ -325,6 +365,13 @@ class Row(Node):
     def enter(self):
         self._parent.write_row(self)
 
+    def get_debug_info(self, offset):
+        debug = DebugInfo()
+        debug.address = 'Row %d' % (self.rowx + offset)
+        if self.cell_tag:
+            debug.value = self.cell_tag.beforerow
+        return debug
+
 class Tree(Node):
     ext_tag = 'tree'
 
@@ -349,8 +396,13 @@ class Tree(Node):
     def write_cell(self, cell_node, rv, cty):
         self.sheet_writer.write_cell(cell_node, rv, cty)
 
-    def set_image_ref(self, image_ref, image_key):
-        self.sheet_writer.set_image_ref(image_ref, image_key)
+    def set_image_ref(self, image_ref):
+        self.sheet_writer.set_image_ref(image_ref)
+
+    def get_debug_info(self, offset):
+        debug = DebugInfo()
+        debug.address = 'Sheet %s' % self.no
+        return debug
 
 def create_cell(sheet_cell, rowx, colx, value, rich_text, data_type, font, rich_handler):
     s,cell_tag,head,tail = find_cell_tag(value)

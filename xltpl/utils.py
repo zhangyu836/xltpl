@@ -8,7 +8,9 @@ VARIABLE_START_STRING = '{{'
 VARIABLE_END_STRING = '}}'
 TAGTEST = '%s.+%s|%s.+%s' % (BLOCK_START_STRING, BLOCK_END_STRING, VARIABLE_START_STRING, VARIABLE_END_STRING)
 XVTEST = '^ *%s *xv.+%s *$' % (BLOCK_START_STRING, BLOCK_END_STRING)
+SingleXV = '%s *xv.+?%s' % (BLOCK_START_STRING, BLOCK_END_STRING)
 VTEST = '^%s.+%s$' % (VARIABLE_START_STRING, VARIABLE_END_STRING)
+SingleV = '%s.+?%s' % (VARIABLE_START_STRING, VARIABLE_END_STRING)
 BLOCKTEST = '%s.+%s' % (BLOCK_START_STRING, BLOCK_END_STRING)
 
 CELL = 'cell'
@@ -33,13 +35,19 @@ def tag_test(txt):
 
 def xv_test(txt):
     p = re.compile(XVTEST)
-    xv = p.findall(txt)
-    return bool(xv)
+    p2 = re.compile(SingleXV)
+    if p.findall(txt):
+        parts = p2.split(txt)
+        if len(parts) < 3:
+            return True
 
 def v_test(txt):
     p = re.compile(VTEST)
-    v = p.findall(txt)
-    return bool(v)
+    p2 = re.compile(SingleV)
+    if p.findall(txt):
+        parts = p2.split(txt)
+        if len(parts) < 3:
+            return True
 
 def block_tag_test(txt):
     p = re.compile(BLOCKTEST)

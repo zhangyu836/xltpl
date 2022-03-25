@@ -82,6 +82,28 @@ try:
 except:
     pil = False
 
+class ImageRef():
+
+    def __init__(self, image, image_index):
+        self.image = image
+        self.image_index = image_index
+        self.rdrowx = -1
+        self.rdcolx = -1
+        self.wtrowx = -1
+        self.wtcolx = -1
+        if not isinstance(image, ImageFile):
+            fname = six.text_type(image)
+            if not os.path.exists(fname):
+                self.image = None
+
+    @property
+    def image_key(self):
+        return (self.rdrowx,self.rdcolx,self.image_index)
+
+    @property
+    def wt_top_left(self):
+        return (self.wtrowx,self.wtcolx)
+
 class ImagexExtension(Extension):
     tags = set(['img'])
 
@@ -96,13 +118,11 @@ class ImagexExtension(Extension):
         return nodes.CallBlock(self.call_method('_image', args),
                                [], [], body).set_lineno(lineno)
 
-    def _image(self, image_ref, image_key, caller):
+    def _image(self, image, image_index, caller):
         if not pil:
             return ''
-        node = self.environment.node_map.current_node
-        if not isinstance(image_ref, ImageFile):
-            fname = six.text_type(image_ref)
-            if not os.path.exists(fname):
-                image_ref = ''
-        node.set_image_ref(image_ref, image_key)
+        image_ref = ImageRef(image, image_index)
+        if image_ref.image:
+            node = self.environment.node_map.current_node
+            node.set_image_ref(image_ref)
         return 'image'

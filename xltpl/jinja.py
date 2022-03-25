@@ -1,4 +1,4 @@
-import sys
+import sys,re
 from jinja2 import Environment
 from jinja2.exceptions import TemplateSyntaxError
 from .xlext import NodeExtension, SegmentExtension, XvExtension, ImageExtension, ImagexExtension
@@ -8,25 +8,66 @@ class Env(Environment):
 
     def handle_exception(self, *args, **kwargs):
         exc_type, exc_value, tb = sys.exc_info()
-        red_fmt = '\033[31m%s\033[0m'
-        blue_fmt = '\033[34m%s\033[0m'
-        error_type = red_fmt % ('error type:  %s' % exc_type)
-        error_message = red_fmt % ('error message:  %s' % exc_value)
-        print(error_type)
-        print(error_message)
+        self.red_fmt = '\033[31m%s\033[0m'
+        self.blue_fmt = '\033[34m%s\033[0m'
+        self.error_type = self.red_fmt % ('error type:  %s' % exc_type)
+        self.error_message = self.red_fmt % ('error message:  %s' % exc_value)
         if exc_type is TemplateSyntaxError:
             lineno = exc_value.lineno
             source = kwargs['source']
             src_lines = source.splitlines()
-            for i, line in enumerate(src_lines):
-                if i + 1 == lineno:
-                    line_str = red_fmt % ('line %d : %s' % (i + 1, line))
-                elif i + 1 in [lineno - 1, lineno + 1]:
-                    line_str = blue_fmt % ('line %d : %s' % (i + 1, line))
-                else:
-                    line_str = 'line %d : %s' % (i + 1, line)
-                print(line_str)
+            self.log_lines(lineno, src_lines)
+            self.log_cells(lineno, src_lines)
         Environment.handle_exception(self, *args, **kwargs)
+
+    def get_debug_info(self, line):
+        p = re.compile("'(\d*,\d*.*)'")
+        m = p.findall(line)
+        debug_info = None
+        if len(m) > 0:
+            key = m[0]
+            node = self.node_map.get_tag_node(key)
+            if node:
+                debug_info = node.get_debug_info(self.offset)
+        else:
+            print(line, '---no match---')
+        return debug_info
+
+    def log_cells(self, lineno, lines):
+        for i, line in enumerate(lines):
+            debug_info = self.get_debug_info(line)
+            if not debug_info:
+                print(line, '---no debug info---')
+                continue
+            if debug_info.value and isinstance(debug_info.value, str):
+                line_info = '%s : %s' % (debug_info.address, debug_info.value)
+                if i + 1 == lineno:
+                    log_str = self.red_fmt % (line_info)
+                    print(self.blue_fmt % ('Syntax Error in ' + debug_info.address))
+                    print(self.error_message)
+                elif i + 1 in [lineno - 1, lineno + 1]:
+                    log_str = self.blue_fmt % (line_info)
+                else:
+                    log_str = line_info
+                print(log_str)
+
+    def log_lines(self, lineno, lines):
+        for i, line in enumerate(lines):
+            debug_info = self.get_debug_info(line)
+            if not debug_info:
+                print(line, '---no debug info---')
+                continue
+            address_line = '   <---   ' + debug_info.address
+            line_info = 'line %4d : %s %s' % (i + 1, line, address_line)
+            if i + 1 == lineno:
+                log_str = self.red_fmt % (line_info)
+                print(self.blue_fmt % ('Syntax Error in ' + debug_info.address))
+                print(self.error_message)
+            elif i + 1 in [lineno - 1, lineno + 1]:
+                log_str = self.blue_fmt % (line_info)
+            else:
+                log_str = line_info
+            print(log_str)
 
     def set_node_map(self, node_map):
         self.node_map = node_map
@@ -37,6 +78,7 @@ class JinjaEnv(Env):
         Env.__init__(self, extensions=[NodeExtension, SegmentExtension, YnExtension,
                                        XvExtension, ImageExtension])
         self.node_map = node_map
+        self.offset = 1
 
 
 class JinjaEnvx(Env):
@@ -45,3 +87,4 @@ class JinjaEnvx(Env):
         Env.__init__(self, extensions=[NodeExtension, SegmentExtension, YnxExtension,
                                        XvExtension, ImagexExtension])
         self.node_map = node_map
+        self.offset = 0

@@ -64,3 +64,7 @@ class NodeMap():
             self.find_lca(self.last_node, self.current_node)
         return self.current_node
 
+    def get_tag_node(self, key):
+        return self.node_map.get(key)
+
+
