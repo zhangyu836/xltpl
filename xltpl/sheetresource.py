@@ -7,9 +7,16 @@ class SheetResource():
         #self.jinja_env = jinja_env
         self.sheet_tree = book_writer.build(rdsheet, index, self.merger)
         self.tpl = self.sheet_tree.to_tag()
+        self.tpl =  self._fix_qoute(self.tpl)
         #print(self.tpl)
         self.jinja_tree = jinja_env.from_string(self.tpl)
-
+        
+    def _fix_qoute(self, text):
+        dic = {"“": '"', "”": '"', "‘": "'", "’": "'"}
+        for i, j in dic.items():
+            text = text.replace(i, j)
+        return text
+    
     def render_sheet(self, sheet_writer, payload):
         self.sheet_tree.set_sheet_writer(sheet_writer)
         self.jinja_tree.render(payload)
