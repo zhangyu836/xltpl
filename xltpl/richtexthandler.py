@@ -2,7 +2,7 @@
 
 import six
 from copy import copy
-from .utils import block_tag_test, fix_test, tag_fix
+from .utils import fix_test, tag_fix
 from openpyxl.cell.text import RichText, Text
 
 class RichTextHandler():

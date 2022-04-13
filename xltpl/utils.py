@@ -87,49 +87,6 @@ def parse_range_tag(txt):
 
 
 CTEx = ' *yn | *xv | *img '
-CTBeforeRow = '^(%s-(?!%s).+?%s)+' % (BLOCK_START_STRING, CTEx, BLOCK_END_STRING)
-CTBeforeCell = '^(%s(?!%s).+?%s)+' % (BLOCK_START_STRING, CTEx, BLOCK_END_STRING)
-CTAfterCell = '(%s(?!%s).+?%s)+$' % (BLOCK_START_STRING, CTEx, BLOCK_END_STRING)
-CTExtraCell = '(%s\+(?!%s).+?%s)+$' % (BLOCK_START_STRING, CTEx, BLOCK_END_STRING)
-p_br = re.compile(CTBeforeRow)
-p_bc = re.compile(CTBeforeCell)
-p_ac = re.compile(CTAfterCell)
-p_ex = re.compile(CTExtraCell)
-
-from .misc import CellTag
-def find_tag(pattern, string):
-    m = pattern.search(string)
-    if m:
-        st, end = m.span()
-        tag = string[st:end]
-        if st == 0:
-            string = string[end:]
-        else:
-            string = string[:st]
-        return string, tag, end-st
-    return string, '', 0
-
-def find_cell_tag(s):
-    head = 0
-    tail = 0
-    cell_tag = CellTag()
-    s, tag, l = find_tag(p_br, s)
-    cell_tag.beforerow = tag
-    head += l
-    s, tag, l = find_tag(p_bc, s)
-    cell_tag.beforecell = tag
-    head += l
-    s, tag, l = find_tag(p_ex, s)
-    cell_tag.extracell = tag
-    tail += l
-    s, tag, l = find_tag(p_ac, s)
-    cell_tag.aftercell = tag
-    tail += l
-    if head > 0 or tail >0:
-        return s, cell_tag, head, tail
-    else:
-        return s, None, 0, 0
-
 BLOCKSPLIT = '((?:%s(?:(?!%s).)+?%s)+)' % (BLOCK_START_STRING, CTEx, BLOCK_END_STRING)
 CTEx2 = ' *yn | *img '
 YNSPLIT = '(%s(?:(?=%s)).+?%s)' % (BLOCK_START_STRING, CTEx2, BLOCK_END_STRING)

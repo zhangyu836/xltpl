@@ -2,8 +2,9 @@
 
 import six
 from openpyxl.utils import get_column_letter
-from .utils import tag_test, xv_test, v_test, find_cell_tag, block_split, rich_split, img_test
+from .utils import tag_test, xv_test, v_test
 from .misc import TreeProperty
+from .celltag import find_cell_tag, block_split_pattern, tag_parser
 
 class DebugInfo():
 
@@ -150,26 +151,23 @@ class Section(Node):
         self.unpack(text)
 
     def unpack(self, text):
-        parts = block_split(text)
+        parts = block_split_pattern.split(text)
         for index, part in enumerate(parts):
-            if part == '':
-                continue
             if index % 2 == 0:
-                sub_parts = rich_split(part)
-                for sub_index, sub_part in enumerate(sub_parts):
-                    if sub_part == '':
-                        continue
-                    if sub_index % 2 == 0:
-                        child = Segment(sub_part)
-                    else:
-                        if img_test(sub_part):
-                            child = ImageSegment(sub_part)
-                        else:
-                            child = RichSegment(sub_part, self.font)
-                    self.add_child(child)
+                if part == '':
+                    continue
+                child = Segment(part)
             else:
-                child = BlockSegment(part)
-                self.add_child(child)
+                tag = tag_parser.parse_tag(part)
+                if tag == 'img':
+                    child = ImageSegment(part)
+                elif tag == 'yn':
+                    child = RichSegment(part, self.font)
+                elif tag == 'xv':
+                    child = Segment(part)
+                else:
+                    child = BlockSegment(part)
+            self.add_child(child)
 
     def pack(self):
         if not self.richs:
@@ -264,7 +262,7 @@ class Cell(Node):
         debug.address = 'Cell %s' % coordinate
         if self.cell_tag:
             debug.cell_tag = self.cell_tag
-            debug.value = self.cell_tag.beforecell + self.value + self.cell_tag.aftercell
+            debug.value = self.cell_tag.beforecell + str(self.value) + self.cell_tag.aftercell
         else:
             debug.value = self.value
         return debug

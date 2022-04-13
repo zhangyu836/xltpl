@@ -21,7 +21,7 @@ class Env(Environment):
         Environment.handle_exception(self, *args, **kwargs)
 
     def get_debug_info(self, line):
-        p = re.compile("'(\d*,\d*.*)'")
+        p = re.compile("'(\d*,\d*[,\d]*)'")
         m = p.findall(line)
         debug_info = None
         if len(m) > 0:
@@ -29,15 +29,18 @@ class Env(Environment):
             node = self.node_map.get_tag_node(key)
             if node:
                 debug_info = node.get_debug_info(self.offset)
-        else:
-            print(line, '---no match---')
+            else:
+                print('---no node---')
         return debug_info
 
     def log_cells(self, lineno, lines):
         for i, line in enumerate(lines):
             debug_info = self.get_debug_info(line)
             if not debug_info:
-                print(line, '---no debug info---')
+                if i + 1 == lineno:
+                    print(self.error_message)
+                log_str = self.red_fmt % (line)
+                print(log_str)
                 continue
             if debug_info.value and isinstance(debug_info.value, str):
                 line_info = '%s : %s' % (debug_info.address, debug_info.value)
@@ -55,7 +58,10 @@ class Env(Environment):
         for i, line in enumerate(lines):
             debug_info = self.get_debug_info(line)
             if not debug_info:
-                print(line, '---no debug info---')
+                if i + 1 == lineno:
+                    print(self.error_message)
+                line_info = 'line %4d : %s' % (i + 1, line)
+                print(self.red_fmt % (line_info))
                 continue
             address_line = '   <---   ' + debug_info.address
             line_info = 'line %4d : %s %s' % (i + 1, line, address_line)

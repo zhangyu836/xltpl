@@ -14,19 +14,4 @@ class TreeProperty(object):
             instance.__dict__[self._name] = getattr(instance._parent, self.name)
         return instance.__dict__[self._name]
 
-class CellTag():
 
-    def __init__(self, cell_tag=dict()):
-        self.beforerow = ''
-        self.beforecell = ''
-        self.aftercell = ''
-        self.extracell = ''
-        if cell_tag:
-            self.__dict__.update(cell_tag)
-
-    def extend(self, other):
-        if isinstance(other, CellTag):
-            self.beforerow = other.beforerow + self.beforerow
-            self.beforecell = other.beforecell + self.beforecell
-            self.aftercell += other.aftercell
-            self.extracell += other.extracell

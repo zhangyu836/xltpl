@@ -12,7 +12,7 @@ from .sheetresource import SheetResourceMap
 from .richtexthandler import rich_handler
 from .merger import Merger
 from .config import config
-from .misc import CellTag
+from .celltag import CellTag
 
 class SheetWriter(SheetBase, SheetMixin):
 
