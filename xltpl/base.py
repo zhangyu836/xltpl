@@ -202,6 +202,12 @@ class SheetBase():
         if cty == xlrd.XL_CELL_TEXT:
             if isinstance(value, (list, tuple)):
                 wtrow.set_cell_rich_text(wtcolx, value, style)
+            elif(value.startswith('=')):
+                try:
+                    formula = xlwt.Formula(value[1:])
+                    wtrow.set_cell_formula(wtcolx, formula, style)
+                except BaseException as e:
+                    wtrow.set_cell_text(wtcolx, value, style)
             else:
                 wtrow.set_cell_text(wtcolx, value, style)
         elif cty == xlrd.XL_CELL_NUMBER or cty == xlrd.XL_CELL_DATE:

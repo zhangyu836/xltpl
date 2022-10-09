@@ -1,4 +1,16 @@
 
+class CellState(object):
+
+    def __init__(self, target_cell, source_cell, rdrowx, rdcolx,
+                wtrowx, wtcolx, value, data_type):
+        self.target_cell = target_cell
+        self.source_cell = source_cell
+        self.rdrowx = rdrowx
+        self.rdcolx = rdcolx
+        self.wtrowx = wtrowx
+        self.wtcolx = wtcolx
+        self.value = value
+        self.data_type = data_type
 
 class SheetMixin(object):
 
@@ -18,7 +30,13 @@ class SheetMixin(object):
         self.current_col_num += 1
         self.merger.merge_cell(cell_node.rowx, cell_node.colx, self.current_row_num, self.current_col_num)
         if cell_node.sheet_cell:
-            self.cell(cell_node.sheet_cell, cell_node.rowx, cell_node.colx, self.current_row_num, self.current_col_num, rv, cty)
+            target_cell = self.cell(cell_node.sheet_cell, cell_node.rowx, cell_node.colx, self.current_row_num, self.current_col_num, rv, cty)
+            if target_cell and hasattr(cell_node, 'ops') and cell_node.ops:
+                cell_state = CellState(target_cell, cell_node.sheet_cell, cell_node.rowx, cell_node.colx,
+                                       self.current_row_num, self.current_col_num, rv, cty)
+                for (func, func_args) in cell_node.ops:
+                    func(*func_args, cell_state)
+                cell_node.ops.clear()
 
     def set_image_ref(self, image_ref):
         image_ref.wtrowx = self.current_row_num

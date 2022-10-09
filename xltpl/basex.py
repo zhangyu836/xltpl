@@ -71,24 +71,27 @@ class SheetBase():
         if value is None:
             target_cell.value = source_cell._value
             target_cell.data_type = source_cell.data_type
+        elif isinstance(value, STRING_TYPES) and value.startswith('='):
+            target_cell.value = value
         elif data_type:
             target_cell._value = value
             target_cell.data_type = data_type
         else:
-            value, data_type = get_type(value)
+            #value, data_type = get_type(value)
             target_cell.value = value
-            target_cell.data_type = data_type
+            #target_cell.data_type = data_type
         if source_cell.has_style:
             target_cell._style = copy.copy(source_cell._style)
         if source_cell.hyperlink:
             target_cell._hyperlink = copy.copy(source_cell.hyperlink)
         #if source_cell.comment:
         #    target_cell.comment = copy.copy(source_cell.comment)
+        return target_cell
 
     def cell(self, source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value=None, data_type=None):
         self.copy_row_dimension(rdrowx, wtrowx)
         self.copy_col_dimension(rdcolx, wtcolx)
-        self._cell(source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value, data_type)
+        return self._cell(source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value, data_type)
 
 class BookBase():
 

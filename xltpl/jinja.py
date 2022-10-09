@@ -1,7 +1,8 @@
 import sys,re
 from jinja2 import Environment
 from jinja2.exceptions import TemplateSyntaxError
-from .xlext import NodeExtension, SegmentExtension, XvExtension, ImageExtension, ImagexExtension
+from .xlext import NodeExtension, SegmentExtension, XvExtension, \
+    ImageExtension, ImagexExtension, OpExtension, NoopExtension
 from .ynext import YnExtension, YnxExtension
 
 class Env(Environment):
@@ -82,7 +83,7 @@ class JinjaEnv(Env):
 
     def __init__(self, node_map):
         Env.__init__(self, extensions=[NodeExtension, SegmentExtension, YnExtension,
-                                       XvExtension, ImageExtension])
+                                       XvExtension, ImageExtension, NoopExtension])
         self.node_map = node_map
         self.offset = 1
 
@@ -91,6 +92,6 @@ class JinjaEnvx(Env):
 
     def __init__(self, node_map):
         Env.__init__(self, extensions=[NodeExtension, SegmentExtension, YnxExtension,
-                                       XvExtension, ImagexExtension])
+                                       XvExtension, ImagexExtension, OpExtension])
         self.node_map = node_map
         self.offset = 0

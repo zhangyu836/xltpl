@@ -142,6 +142,16 @@ class ImageSegment(Segment):
         fmt = "{%%seg '%s'%%}{%%endseg%%}%s"
         return fmt % (self.node_key, self.text)
 
+class OpSegment(Segment):
+
+    @property
+    def node_tag(self):
+        fmt = "{%%seg '%s'%%}{%%endseg%%}%s"
+        return fmt % (self.node_key, self.text)
+
+    def add_op(self, op):
+        self._parent.add_op(op)
+
 class Section(Node):
 
     def __init__(self, text, font, rich_handler):
@@ -165,6 +175,8 @@ class Section(Node):
                     child = RichSegment(part, self.font)
                 elif tag == 'xv':
                     child = Segment(part)
+                elif tag == 'op':
+                    child = OpSegment(part)
                 else:
                     child = BlockSegment(part)
             self.add_child(child)
@@ -210,6 +222,9 @@ class Section(Node):
         if not isinstance(rv, six.text_type):
             self.richs.append(len(self.child_rvs))
         self.child_rvs.append(rv)
+
+    def add_op(self, op):
+        self._parent.add_op(op)
 
 class Cell(Node):
     ext_tag = 'cell'
@@ -274,12 +289,16 @@ class TagCell(Section, Cell):
         self.font = font
         self.rich_handler = rich_handler
         self.unpack(value)
+        self.ops = []
 
     def exit(self):
         rv = self.pack()
         if not isinstance(rv, six.text_type):
             rv = self.rich_handler.rich_content(rv)
         self.write(rv, self.cty)
+		
+    def add_op(self, op):
+        self.ops.append(op)
 
 
 class RichTagCell(Cell):
@@ -289,6 +308,7 @@ class RichTagCell(Cell):
         self.font = font
         self.rich_handler = rich_handler
         self.unpack(value)
+        self.ops = []
 
     def unpack(self, rich_text):
         for text, font, segment in self.rich_handler.iter(rich_text, self.font):
@@ -307,6 +327,9 @@ class RichTagCell(Cell):
             self.child_rvs.extend(rv)
         else:
             self.child_rvs.append(rv)
+	
+    def add_op(self, op):
+        self.ops.append(op)
 
 class EmptyCell(Cell):
 

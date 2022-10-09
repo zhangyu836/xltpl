@@ -37,7 +37,7 @@ class TagParser():
         tag = next(tokens)
         ignored = False
         beforerow = False
-        if tag.value in ['yn', 'img', 'xv']:
+        if tag.value in ['yn', 'img', 'xv', 'op']:
             ignored = True
         if begin.value[-1] == '-':
             beforerow = True
