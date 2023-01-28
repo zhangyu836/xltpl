@@ -107,7 +107,11 @@ def find_cell_tag(text):
         cell_tag.beforerow = _beforerow
         cell_tag.beforecell = _beforecell
         cell_tag.aftercell = _aftercell
-        s = text[head:-tail]
+        if(tail==0):
+            s = text[head:]
+        else:
+            s = text[head:-tail]
+        #print(s, cell_tag, head, tail)
         return s, cell_tag, head, tail
     else:
         return text, None, 0, 0
