@@ -3,7 +3,7 @@
 from .patchx import *
 from openpyxl import load_workbook
 from .basex import SheetBase, BookBase
-from .writermixin import SheetMixin, BookMixin
+from .writermixin import SheetMixin, BookMixin, Box
 from .utils import tag_test, parse_cell_tag
 from .xlnode import Tree, Row, Cell, EmptyCell, Node, create_cell
 from .jinja import JinjaEnvx
@@ -24,9 +24,7 @@ class SheetWriter(SheetBase, SheetMixin):
         self.copy_sheet_settings()
         self.wtrows = set()
         self.wtcols = set()
-        self.min_rowx = 0
-        self.min_colx = 0
-        self.reset_pos()
+        self.box = Box(0, 0)
 
 
 class BookWriter(BookBase, BookMixin):
@@ -88,10 +86,21 @@ class BookWriter(BookBase, BookMixin):
         tree.add_child(Node())#
         return tree
 
+    def cleanup_defined_names(self):
+        sheet_cnt = len(self.workbook.worksheets)
+        valid_names = []
+        for d in self.workbook.defined_names.definedName:
+            if d.localSheetId:
+                if int(d.localSheetId) < sheet_cnt:
+                    valid_names.append(d)
+            else:
+                valid_names.append(d)
+        self.workbook.defined_names.definedName = valid_names
 
     def save(self, fname):
         if not self.workbook.active:
             self.workbook.active = 0
+        self.cleanup_defined_names()
         self.workbook.save(fname)
         for sheet in self.workbook.worksheets:
             self.workbook.remove(sheet)

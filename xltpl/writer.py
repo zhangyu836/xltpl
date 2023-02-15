@@ -3,7 +3,7 @@
 import six
 
 from .base import SheetBase, BookBase
-from .writermixin import SheetMixin, BookMixin
+from .writermixin import SheetMixin, BookMixin, Box
 from .utils import tag_test, parse_cell_tag
 from .xlnode import Tree, Row, Cell, EmptyCell, Node, create_cell
 from .jinja import JinjaEnv
@@ -25,9 +25,7 @@ class SheetWriter(SheetBase, SheetMixin):
         self.create_worksheet(self.rdsheet, sheet_name)
         self.wtrows = set()
         self.wtcols = set()
-        self.min_rowx = -1
-        self.min_colx = -1
-        self.reset_pos()
+        self.box = Box(-1, -1)
 
 class BookWriter(BookBase, BookMixin):
     sheet_writer_cls = SheetWriter
@@ -88,10 +86,10 @@ class BookWriter(BookBase, BookMixin):
         tree.add_child(Node())#
         return tree
 
-    def render_sheet(self, payload):
+    def render_sheet(self, payload, left_top=None):
         if not hasattr(self, 'wtbook') or self.wtbook is None:
             self.create_workbook()
-        BookMixin.render_sheet(self, payload)
+        return BookMixin.render_sheet(self, payload, left_top)
 
     def save(self, fname):
         if self.wtbook is not None:
