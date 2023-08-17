@@ -2,27 +2,7 @@
 
 import xlrd
 import xlwt
-import six
-import datetime
-from decimal import Decimal
-from openpyxl.utils.datetime import to_excel
-
-from openpyxl.cell.cell import NUMERIC_TYPES, TIME_TYPES, STRING_TYPES
-BOOL_TYPE = bool
-
-def get_type(value):
-    if isinstance(value, NUMERIC_TYPES):
-        dt = xlrd.XL_CELL_NUMBER
-    elif isinstance(value, STRING_TYPES):
-        dt = xlrd.XL_CELL_TEXT
-    elif isinstance(value, TIME_TYPES):
-        dt = xlrd.XL_CELL_DATE
-        return to_excel(value), dt
-    elif isinstance(value, BOOL_TYPE):
-        dt = xlrd.XL_CELL_BOOLEAN
-    else:
-        return str(value), xlrd.XL_CELL_TEXT
-    return value, dt
+from .cellcontext import CellContext
 
 # adapted from xlutils.filter
 class SheetBase():
@@ -228,6 +208,9 @@ class SheetBase():
         self.copy_row_dimension(rdrowx, wtrowx)
         self.copy_col_dimension(rdcolx, wtcolx)
         self._cell(source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value, cty)
+
+    def get_cell_context(self, cell_node, rv, cty):
+        return CellContext(self, cell_node, rv, cty)
 
 
 class BookBase():

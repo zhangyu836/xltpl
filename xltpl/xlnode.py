@@ -86,6 +86,10 @@ class Node(object):
     def get_debug_info(self, offset):
         return self._parent.get_debug_info(offset)
 
+    @property
+    def current_cell(self):
+        return self._parent.current_cell
+
 class Segment(Node):
 
     def __init__(self, text):
@@ -290,6 +294,7 @@ class TagCell(Section, Cell):
         self.rich_handler = rich_handler
         self.unpack(value)
         self.ops = []
+        self.filters = []
 
     def exit(self):
         rv = self.pack()
@@ -300,6 +305,13 @@ class TagCell(Section, Cell):
     def add_op(self, op):
         self.ops.append(op)
 
+    def add_filter(self, filter, args):
+        self.filters.append([filter, args])
+
+    @property
+    def current_cell(self):
+        return self
+
 
 class RichTagCell(Cell):
 
@@ -309,6 +321,7 @@ class RichTagCell(Cell):
         self.rich_handler = rich_handler
         self.unpack(value)
         self.ops = []
+        self.filters = []
 
     def unpack(self, rich_text):
         for text, font, segment in self.rich_handler.iter(rich_text, self.font):
@@ -330,6 +343,13 @@ class RichTagCell(Cell):
 	
     def add_op(self, op):
         self.ops.append(op)
+
+    def add_filter(self, filter, args):
+        self.filters.append([filter, args])
+
+    @property
+    def current_cell(self):
+        return self
 
 class EmptyCell(Cell):
 

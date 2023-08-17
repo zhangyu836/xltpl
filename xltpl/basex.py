@@ -3,22 +3,7 @@
 import copy
 from openpyxl.utils import get_column_letter
 from openpyxl.cell.text import InlineFont
-
-from openpyxl.cell.cell import NUMERIC_TYPES, TIME_TYPES, STRING_TYPES
-BOOL_TYPE = bool
-
-def get_type(value):
-    if isinstance(value, NUMERIC_TYPES):
-        dt = 'n'
-    elif isinstance(value, STRING_TYPES):
-        dt = 's'
-    elif isinstance(value, TIME_TYPES):
-        dt = 'd'
-    elif isinstance(value, BOOL_TYPE):
-        dt = 'b'
-    else:
-        return str(value), 's'
-    return value, dt
+from .cellcontext import CellContextX
 
 class SheetBase():
 
@@ -92,6 +77,10 @@ class SheetBase():
         self.copy_row_dimension(rdrowx, wtrowx)
         self.copy_col_dimension(rdcolx, wtcolx)
         return self._cell(source_cell, rdrowx, rdcolx, wtrowx, wtcolx, value, data_type)
+
+    def get_cell_context(self, cell_node, rv, cty):
+        return CellContextX(self, cell_node, rv, cty)
+
 
 class BookBase():
 

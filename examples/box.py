@@ -18,10 +18,10 @@ def write_test(writer_cls, tpl_fname, result_fname):
     person['rows'] = items
     person['items'] = items
     person['sheet_name'] = 'box'
-    left_top = None
+    top_left = None
     for i in range(3):
         person['tpl_name'] = 'top'
-        top_box = writer.render_sheet(person, left_top)
+        top_box = writer.render_sheet(person, top_left)
 
         person['tpl_name'] = 'left'
         left_box = writer.render_sheet(person, (top_box.bottom, top_box.left))
@@ -34,7 +34,7 @@ def write_test(writer_cls, tpl_fname, result_fname):
 
         _left = top_box.left
         _top = max(left_box.bottom, middle_box.bottom, right_box.bottom)
-        left_top = (_top, _left)
+        top_left = (_top, _left)
 
 
     fname = os.path.join(pth, result_fname)
