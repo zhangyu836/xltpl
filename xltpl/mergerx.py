@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from copy import copy, deepcopy
+from copy import copy
 from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
 from .merger import MergeMixin
+from .image import Img
 
 
 class MergerMixin():
@@ -131,7 +132,7 @@ class ImageMerge(MergeMixin):
     def new_range(self):
         if self.start_wtrowx==-1:
             return
-        image = deepcopy(self.image)
+        image = Img(self.image)
         _from = image.anchor._from
         _to = image.anchor.to
         _from.row = self.start_wtrowx - 1
@@ -150,7 +151,7 @@ class ImageMerge(MergeMixin):
         for key,image in self.image_copy_map.items():
             ref = self.image_ref_map.get(key)
             if ref:
-                image.ref = ref
+                image.set_ref(ref)
             self.merger.add_image(image)
         self.image_copy_map.clear()
         self.image_ref_map.clear()
@@ -168,6 +169,7 @@ class ImageMerger(MergerMixin):
     def get_merge_list(self, rdsheet):
         image_count_dict = defaultdict(int)
         for image in rdsheet._images:
+            #print(image.ref, id(image.ref))
             _merge = ImageMerge(image, self, image_count_dict)
             self._merge_map[_merge.image_key] = _merge
             self._merge_list.append(_merge)
@@ -226,6 +228,12 @@ class AutoFilter(MergeMixin):
             wtsheet.auto_filter = copy(self.auto_filter)
             wtsheet.auto_filter.ref = self.first_af.coord
             self.first_af = None
+
+class DefinedName(MergeMixin):
+    pass
+
+class DefinedNames(MergerMixin):
+    pass
 
 
 class Merger:

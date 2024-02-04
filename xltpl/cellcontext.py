@@ -86,7 +86,7 @@ class CellContextX(Base):
         if value is None:
             target._value = source._value
             target.data_type = source.data_type
-        elif isinstance(value, STRING_TYPES) and value.startswith('='):
+        elif isinstance(value, (str, bytes)) and value.startswith('='):
             target.value = value
         elif data_type:
             target._value = value

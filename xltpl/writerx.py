@@ -2,6 +2,7 @@
 
 from .patchx import *
 from openpyxl import load_workbook
+from openpyxl.cell.rich_text import CellRichText
 from .basex import SheetBase, BookBase
 from .writermixin import SheetMixin, BookMixin, Box
 from .utils import tag_test, parse_cell_tag
@@ -13,6 +14,7 @@ from .richtexthandler import rich_handlerx
 from .mergerx import Merger
 from .config import config
 from .celltag import CellTag
+from .image import img_cache
 
 class SheetWriter(SheetBase, SheetMixin):
 
@@ -35,7 +37,7 @@ class BookWriter(BookBase, BookMixin):
         self.load(fname)
 
     def load(self, fname):
-        self.workbook = load_workbook(fname)
+        self.workbook = load_workbook(fname, rich_text=True)
         self.font_map = {}
         self.node_map = NodeMap()
         self.jinja_env = JinjaEnvx(self.node_map)
@@ -66,12 +68,17 @@ class BookWriter(BookBase, BookMixin):
                         _,cell_tag_map = parse_cell_tag(comment)
                 value = sheet_cell._value
                 data_type = sheet_cell.data_type
-                rich_text = None
-                if hasattr(value, 'rich') and value.rich:
-                    rich_text = value.rich
                 if data_type == 's':
+                    rich_text = None
+                    if isinstance(value, CellRichText):
+                        #print(value)
+                        rich_text = value
+                        value = str(rich_text)
                     if not tag_test(value):
-                        cell_node = Cell(sheet_cell, rowx, colx, value, data_type)
+                        if rich_text:
+                            cell_node = Cell(sheet_cell, rowx, colx, rich_text, data_type)
+                        else:
+                            cell_node = Cell(sheet_cell, rowx, colx, value, data_type)
                     else:
                         font = self.get_font(sheet_cell._style.fontId)
                         cell_node = create_cell(sheet_cell, rowx, colx, value, rich_text, data_type, font, rich_handlerx)
@@ -87,21 +94,24 @@ class BookWriter(BookBase, BookMixin):
         return tree
 
     def cleanup_defined_names(self):
+        self.workbook.custom_doc_props = ()
+        # Custom Document Properties cause invalid file error
         sheet_cnt = len(self.workbook.worksheets)
-        valid_names = []
-        for d in self.workbook.defined_names.definedName:
-            if d.localSheetId:
-                if int(d.localSheetId) < sheet_cnt:
-                    valid_names.append(d)
+        valid_names = {}
+        for k, v in self.workbook.defined_names.items():
+            if v.localSheetId:
+                if int(v.localSheetId) < sheet_cnt:
+                    valid_names[k] = v
             else:
-                valid_names.append(d)
-        self.workbook.defined_names.definedName = valid_names
+                valid_names[k] = v
+        self.workbook.defined_names = valid_names
 
     def save(self, fname):
         if not self.workbook.active:
             self.workbook.active = 0
         self.cleanup_defined_names()
         self.workbook.save(fname)
+        img_cache.clear()
         for sheet in self.workbook.worksheets:
             self.workbook.remove(sheet)
         self.sheet_writer_map.clear()

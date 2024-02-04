@@ -3,7 +3,7 @@
 import copy
 from jinja2 import nodes
 from jinja2.ext import Extension
-from openpyxl.cell.text import RichText
+from openpyxl.cell.rich_text import TextBlock
 
 def yes(font):
     wfont = copy.copy(font)
@@ -13,7 +13,7 @@ def yes(font):
 def yesx(font):
     wfont = copy.copy(font)
     wfont.rFont = 'Wingdings 2'
-    return RichText(t='R', rPr=wfont)
+    return TextBlock(wfont, 'R')
 
 def no():
     return u'□'
